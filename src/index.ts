@@ -5,6 +5,7 @@ import {
   ListToolsRequestSchema,
   ErrorCode,
   McpError,
+  type CallToolRequest,
 } from "@modelcontextprotocol/sdk/types.js";
 import { VibePlanClient } from "./vibe-client.js";
 import { z } from "zod";
@@ -103,7 +104,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 /**
  * Handle tool calls
  */
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
+server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest) => {
   switch (request.params.name) {
     case "list_projects": {
       const projects = await vibeClient.listProjects();
