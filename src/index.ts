@@ -1,16 +1,16 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-  ErrorCode,
-  McpError,
   type CallToolRequest,
+  CallToolRequestSchema,
+  ErrorCode,
+  ListToolsRequestSchema,
+  McpError,
 } from "@modelcontextprotocol/sdk/types.js";
-import { VibePlanClient } from "./vibe-client.js";
-import { z } from "zod";
 import * as fs from "fs/promises";
 import * as path from "path";
+import { z } from "zod";
+import { VibePlanClient } from "./vibe-client.js";
 
 const API_KEY = process.env.VIBEPLAN_API_KEY;
 const BASE_URL = process.env.VIBEPLAN_BASE_URL || "http://localhost:3000";
@@ -72,7 +72,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
       },
       {
         name: "sync_to_vibeplan",
-        description: "Sync local codebase state to VibePlan (creates features/stories based on code)",
+        description:
+          "Sync local codebase state to VibePlan (creates features/stories based on code)",
         inputSchema: {
           type: "object",
           properties: {
@@ -139,14 +140,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
 
     case "sync_to_vibeplan": {
       const { projectId, localPath } = request.params.arguments as any;
-      
+
       // 1. Scan codebase
       const structure = await walkDir(localPath, 3);
-      
+
       // 2. Submit task to VibePlan to "Reverse Engineer"
       const task = await vibeClient.submitTask({
         title: "Reverse Engineer Codebase",
-        prompt: `Scan results for local path: ${localPath}\n\nStructure:\n${structure}\n\nPlease analyze this existing codebase and generate corresponding features and user stories in VibePlan.`,        projectId,
+        prompt: `Scan results for local path: ${localPath}\n\nStructure:\n${structure}\n\nPlease analyze this existing codebase and generate corresponding features and user stories in VibePlan.`,
+        projectId,
         taskType: "features",
       });
 
@@ -154,7 +156,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
         content: [
           {
             type: "text",
-            text: `Synchronization task started. Session ID: ${task.sessionId}. VibePlan AI is now mapping your code to features.`,          },
+            text: `Synchronization task started. Session ID: ${task.sessionId}. VibePlan AI is now mapping your code to features.`,
+          },
         ],
       };
     }
@@ -168,10 +171,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
     }
 
     default:
-      throw new McpError(
-        ErrorCode.MethodNotFound,
-        `Unknown tool: ${request.params.name}`
-      );
+      throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${request.params.name}`);
   }
 });
 
@@ -180,21 +180,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request: CallToolRequest)
  */
 async function walkDir(dir: string, maxDepth: number, currentDepth = 0): Promise<string> {
   if (currentDepth > maxDepth) return "";
-  
+
   let result = "";
   const files = await fs.readdir(dir, { withFileTypes: true });
-  
+
   for (const file of files) {
     if (file.name === "node_modules" || file.name === ".git" || file.name === ".next") continue;
-    
+
     const indent = "  ".repeat(currentDepth);
     result += `${indent}${file.isDirectory() ? "[DIR] " : ""}${file.name}\n`;
-    
+
     if (file.isDirectory()) {
       result += await walkDir(path.join(dir, file.name), maxDepth, currentDepth + 1);
     }
   }
-  
+
   return result;
 }
 

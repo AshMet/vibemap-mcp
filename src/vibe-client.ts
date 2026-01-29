@@ -19,7 +19,7 @@ export class VibePlanClient {
       ...options,
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${this.config.apiKey}`,
+        Authorization: `Bearer ${this.config.apiKey}`,
         ...options.headers,
       },
     });
