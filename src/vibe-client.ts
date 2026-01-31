@@ -6,7 +6,7 @@ export interface VibeConfig {
   projectId?: string;
 }
 
-export class VibePlanClient {
+export class VibeMapClient {
   private config: VibeConfig;
 
   constructor(config: VibeConfig) {
@@ -16,7 +16,7 @@ export class VibePlanClient {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.config.baseUrl}${endpoint}`;
     console.error(`[FETCH] ${options.method || "GET"} ${url}`);
-    
+
     // Create an AbortController for timeout
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout

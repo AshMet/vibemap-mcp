@@ -1,13 +1,13 @@
-# VibePlan MCP Server
+# VibeMap MCP Server
 
-A Model Context Protocol (MCP) server that connects VibePlan to your local development environment.
+A Model Context Protocol (MCP) server that connects VibeMap to your local development environment.
 
 ## Features
 
--   **Reverse Engineering**: Automatically generate VibePlan features and user stories by scanning your existing local codebase.
--   **Context Injection**: Provide your IDE's AI assistant with full project context from VibePlan.
+-   **Reverse Engineering**: Automatically generate VibeMap features and user stories by scanning your existing local codebase.
+-   **Context Injection**: Provide your IDE's AI assistant with full project context from VibeMap.
 -   **Status Synchronization**: Update the progress of user stories and acceptance criteria directly from your CLI or IDE.
--   **Project Management**: List and inspect VibePlan projects without leaving your terminal.
+-   **Project Management**: List and inspect VibeMap projects without leaving your terminal.
 
 ## Setup
 
@@ -19,15 +19,15 @@ npm run build
 ```
 
 ### 2. Obtain an API Key
-1.  Log in to your VibePlan web application.
+1.  Log in to your VibeMap web application.
 2.  Navigate to **Account > Developer**.
-3.  Click **Generate Key**, give it a name (e.g., "Claude Desktop"), and copy the generated token (starts with `vp_`).
+3.  Click **Generate Key**, give it a name (e.g., "Claude Desktop"), and copy the generated token (starts with `vm_`).
     *Note: The token is only shown once.*
 
 ### 3. Configure Environment Variables
 The server requires the following environment variables:
--   `VIBEPLAN_API_KEY`: Your VibePlan Personal Access Token (`vp_...`).
--   `VIBEPLAN_BASE_URL`: The URL of your VibePlan instance (default: `http://localhost:3000`).
+-   `VIBEMAP_API_KEY`: Your VibeMap Personal Access Token (`vm_...`).
+-   `VIBEMAP_BASE_URL`: The URL of your VibeMap instance (default: `http://localhost:3000`).
 
 ### 3. Usage with Claude Desktop
 Add this to your `claude_desktop_config.json`:
@@ -35,12 +35,12 @@ Add this to your `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "vibeplan": {
+    "vibemap": {
       "command": "node",
-      "args": ["/absolute/path/to/VibePlan/mcp-server/build/index.js"],
+      "args": ["/absolute/path/to/VibeMap/mcp-server/build/index.js"],
       "env": {
-        "VIBEPLAN_API_KEY": "your_api_token_here",
-        "VIBEPLAN_BASE_URL": "http://localhost:3000"
+        "VIBEMAP_API_KEY": "your_api_token_here",
+        "VIBEMAP_BASE_URL": "http://localhost:3000"
       }
     }
   }
@@ -49,8 +49,8 @@ Add this to your `claude_desktop_config.json`:
 
 ## Available Tools
 
--   `list_projects`: Get a list of all your VibePlan projects.
+-   `list_projects`: Get a list of all your VibeMap projects.
 -   `get_project_context`: Retrieve full details (features, stories) for a specific project.
 -   `scan_codebase`: Walk a local directory to visualize the file structure.
--   `sync_to_vibeplan`: The "Reverse Engineering" tool. Scans your code and tells VibePlan to generate matching assets.
+-   `sync_to_vibemap`: The "Reverse Engineering" tool. Scans your code and tells VibeMap to generate matching assets.
 -   `update_story_status`: Change user story status (draft, open, in_progress, completed).

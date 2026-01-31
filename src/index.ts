@@ -9,20 +9,20 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import * as fs from "fs/promises";
 import * as path from "path";
-import { VibePlanClient } from "./vibe-client.js";
 import { walkDir } from "./utils.js";
+import { VibeMapClient } from "./vibe-client.js";
 
 const getVibeClient = () => {
-  const apiKey = process.env.VIBEPLAN_API_KEY;
-  const baseUrl = process.env.VIBEPLAN_BASE_URL || "http://localhost:3000";
+  const apiKey = process.env.VIBEMAP_API_KEY;
+  const baseUrl = process.env.VIBEMAP_BASE_URL || "http://localhost:3000";
 
   if (!apiKey) {
-    throw new McpError(ErrorCode.InternalError, "VIBEPLAN_API_KEY environment variable is required");
+    throw new McpError(ErrorCode.InternalError, "VIBEMAP_API_KEY environment variable is required");
   }
 
   console.error(`[DEBUG] Using API Key: ${apiKey.substring(0, 10)}...`);
 
-  return new VibePlanClient({
+  return new VibeMapClient({
     baseUrl,
     apiKey,
   });
@@ -30,7 +30,7 @@ const getVibeClient = () => {
 
 export const server = new Server(
   {
-    name: "vibeplan-server",
+    name: "vibemap-server",
     version: "1.0.0",
   },
   {
@@ -48,12 +48,13 @@ export async function handleListTools() {
     tools: [
       {
         name: "list_projects",
-        description: "List all projects in VibePlan",
+        description: "List all projects in VibeMap",
         inputSchema: { type: "object", properties: {} },
       },
       {
         name: "get_project_context",
-        description: "Get context for a project including features, stories, personas, pages, and schema.",
+        description:
+          "Get context for a project including features, stories, personas, pages, and schema.",
         inputSchema: {
           type: "object",
           properties: {
@@ -80,9 +81,9 @@ export async function handleListTools() {
         },
       },
       {
-        name: "sync_to_vibeplan",
+        name: "sync_to_vibemap",
         description:
-          "Sync local codebase state to VibePlan (creates features/stories based on code)",
+          "Sync local codebase state to VibeMap (creates features/stories based on code)",
         inputSchema: {
           type: "object",
           properties: {
@@ -94,7 +95,7 @@ export async function handleListTools() {
       },
       {
         name: "update_story_status",
-        description: "Update the status of a user story in VibePlan",
+        description: "Update the status of a user story in VibeMap",
         inputSchema: {
           type: "object",
           properties: {
@@ -170,7 +171,7 @@ export async function handleCallTool(request: CallToolRequest) {
   const vibeClient = getVibeClient();
 
   console.error(`[DEBUG] Received tool call: ${request.params.name}`, request.params.arguments);
-  
+
   try {
     switch (request.params.name) {
       case "list_projects": {
@@ -202,7 +203,7 @@ export async function handleCallTool(request: CallToolRequest) {
 
         // Extract all useful objects from analysis before we delete/streamline the project object
         const analysis = project.analysis || {};
-        
+
         // Streamline project context to save tokens and improve quality
         const streamlinedProject = stripUnwantedFields(project);
 
@@ -297,17 +298,17 @@ export async function handleCallTool(request: CallToolRequest) {
         };
       }
 
-      case "sync_to_vibeplan": {
+      case "sync_to_vibemap": {
         const { projectId, localPath } = request.params.arguments as any;
         console.error(`[DEBUG] Syncing ${localPath} to project ${projectId}`);
 
         // 1. Scan codebase
         const structure = await walkDir(localPath, 3);
 
-        // 2. Submit task to VibePlan to "Reverse Engineer"
+        // 2. Submit task to VibeMap to "Reverse Engineer"
         const task = await vibeClient.submitTask({
           title: "Reverse Engineer Codebase",
-          prompt: `Scan results for local path: ${localPath}\n\nStructure:\n${structure}\n\nPlease analyze this existing codebase and generate corresponding features and user stories in VibePlan.`,
+          prompt: `Scan results for local path: ${localPath}\n\nStructure:\n${structure}\n\nPlease analyze this existing codebase and generate corresponding features and user stories in VibeMap.`,
           projectId,
           taskType: "features",
         });
@@ -317,7 +318,7 @@ export async function handleCallTool(request: CallToolRequest) {
           content: [
             {
               type: "text",
-              text: `Synchronization task started. Session ID: ${task.sessionId}. VibePlan AI is now mapping your code to features.`,
+              text: `Synchronization task started. Session ID: ${task.sessionId}. VibeMap AI is now mapping your code to features.`,
             },
           ],
         };
@@ -361,7 +362,7 @@ server.setRequestHandler(CallToolRequestSchema, handleCallTool);
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error("VibePlan MCP Server running on stdio");
+  console.error("VibeMap MCP Server running on stdio");
 }
 
 if (process.env.NODE_ENV !== "test") {

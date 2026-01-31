@@ -1,5 +1,5 @@
 import fetch from "node-fetch";
-export class VibePlanClient {
+export class VibeMapClient {
     config;
     constructor(config) {
         this.config = config;

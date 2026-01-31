@@ -1,6 +1,6 @@
-# Testing VibePlan MCP Server
+# Testing VibeMap MCP Server
 
-This document outlines the testing procedures for the VibePlan MCP Server.
+This document outlines the testing procedures for the VibeMap MCP Server.
 
 ## 1. Unit Tests
 
@@ -15,7 +15,7 @@ pnpm test
 ```
 
 ### Test Coverage
-- `vibe-client.test.ts`: Verifies communication with the VibePlan API, including error handling and request formatting.
+- `vibe-client.test.ts`: Verifies communication with the VibeMap API, including error handling and request formatting.
 - `walk-dir.test.ts`: Verifies the recursive directory scanning logic, depth limits, and ignored paths.
 - `tools.test.ts`: Verifies that tool calls are correctly routed and arguments are processed properly.
 
@@ -30,9 +30,9 @@ The [MCP Inspector](https://github.com/modelcontextprotocol/inspector) is a brow
 1.  **Verify Connection (Optional but Recommended)**:
     Before starting the inspector, verify your API key and server are working:
     ```bash
-    curl -H "Authorization: Bearer vp_your_token_here" http://localhost:3000/api/crud/projects
+    curl -H "Authorization: Bearer vm_your_token_here" http://localhost:3000/api/crud/projects
     ```
-    If this returns JSON, your setup is correct. If it hangs, your VibePlan server is not responding.
+    If this returns JSON, your setup is correct. If it hangs, your VibeMap server is not responding.
 
 2.  **Build the Server**:
     The inspector runs the compiled JavaScript code, so ensure you have a fresh build:
@@ -43,10 +43,10 @@ The [MCP Inspector](https://github.com/modelcontextprotocol/inspector) is a brow
     ```
 
 3.  **Set Environment Variables**:
-    You must provide your VibePlan API key. On macOS/Linux:
+    You must provide your VibeMap API key. On macOS/Linux:
     ```bash
-    export VIBEPLAN_API_KEY=vp_your_token_here
-    export VIBEPLAN_BASE_URL=http://localhost:3000 # Optional
+    export VIBEMAP_API_KEY=vm_your_token_here
+    export VIBEMAP_BASE_URL=http://localhost:3000 # Optional
     ```
 
 4.  **Start the Inspector**:
@@ -74,25 +74,25 @@ The [MCP Inspector](https://github.com/modelcontextprotocol/inspector) is a brow
 7.  **Verify Tools**:
     *   Once connected, click the **List Tools** button.
     *   You should see `list_projects`, `get_project_context`, `scan_codebase`, etc.
-    *   Select a tool (e.g., `list_projects`) and click **Run Tool** to see the live output from your VibePlan account.
+    *   Select a tool (e.g., `list_projects`) and click **Run Tool** to see the live output from your VibeMap account.
 
 ### Troubleshooting "Request Timed Out" or "Connection Error"
-- **VibePlan Not Running**: Ensure your VibePlan web application is running in another terminal (`pnpm dev`). Verify it's on port 3000:
+- **VibeMap Not Running**: Ensure your VibeMap web application is running in another terminal (`pnpm dev`). Verify it's on port 3000:
   ```bash
   lsof -i :3000
   ```
-- **Wrong Base URL**: If your server is running on a different port, set `VIBEPLAN_BASE_URL`:
+- **Wrong Base URL**: If your server is running on a different port, set `VIBEMAP_BASE_URL`:
   ```bash
-  export VIBEPLAN_BASE_URL=http://localhost:3001
+  export VIBEMAP_BASE_URL=http://localhost:3001
   ```
-- **Timeout**: Tools now have a 30-second timeout. If requests still fail, check your VibePlan server logs for slow database queries.
+- **Timeout**: Tools now have a 30-second timeout. If requests still fail, check your VibeMap server logs for slow database queries.
 - **Environment Variables**:
-  - Verify `VIBEPLAN_API_KEY` is set in your terminal **before** starting the inspector.
+  - Verify `VIBEMAP_API_KEY` is set in your terminal **before** starting the inspector.
   - Note: `npx` may not inherit variables if not exported correctly. Use `export` before running `npx`.
 - **Logs**: Check the terminal where you ran `npx ... inspector`. The server now outputs `[FETCH]` logs showing exactly which URL is being called.
 - **Build Missing**: If you see `Error: Cannot find module...`, make sure you ran `pnpm run build`.
 - **Token Mismatch**: Ensure you copied the *latest* token from the terminal. If you restart the inspector, the token changes.
-- **API Key**: If tools return 401 errors, verify your `VIBEPLAN_API_KEY` is correct.
+- **API Key**: If tools return 401 errors, verify your `VIBEMAP_API_KEY` is correct.
 - **Node Version**: Ensure you are using Node.js v18 or higher.
 
 ---
