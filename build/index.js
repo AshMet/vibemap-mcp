@@ -8,6 +8,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { walkDir } from "./utils.js";
 import { VibeMapClient } from "./vibe-client.js";
+
 const getVibeClient = () => {
   const apiKey = process.env.VIBEMAP_API_KEY;
   const baseUrl = process.env.VIBEMAP_BASE_URL || "http://localhost:3000";

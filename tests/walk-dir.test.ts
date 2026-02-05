@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import * as fs from "fs/promises";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { walkDir } from "../src/utils";
 
 vi.mock("fs/promises");
