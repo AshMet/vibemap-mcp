@@ -21,8 +21,9 @@ describe("walkDir", () => {
     const result = await walkDir("/root", 3);
 
     expect(result).toContain("file1.txt");
-    expect(result).toContain("[DIR] subdir");
-    expect(result).toContain("  file2.txt");
+    // Updated: walkDir now uses emoji prefix for directories
+    expect(result).toContain("📁 subdir");
+    expect(result).toContain("file2.txt");
   });
 
   it("respects depth limits", async () => {
@@ -35,8 +36,8 @@ describe("walkDir", () => {
 
     const result = await walkDir("/root", 1);
 
-    expect(result).toContain("[DIR] level1");
-    expect(result).not.toContain("[DIR] level2");
+    expect(result).toContain("📁 level1");
+    expect(result).not.toContain("📁 level2");
   });
 
   it("skips ignored directories", async () => {
@@ -51,7 +52,7 @@ describe("walkDir", () => {
 
     expect(result).not.toContain("node_modules");
     expect(result).not.toContain(".git");
-    expect(result).toContain("[DIR] src");
+    expect(result).toContain("📁 src");
   });
 
   it("handles empty directories", async () => {
