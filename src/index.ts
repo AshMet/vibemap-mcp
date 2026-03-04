@@ -115,6 +115,16 @@ const UpdateCriterionSchema = z.object({
   scenarioCategory: z.enum(["happy_path", "error_scenario", "edge_case"]).optional(),
 });
 
+const CreateCriterionSchema = z.object({
+  storyId: z.string().min(1, "storyId is required"),
+  givenCondition: z.string().min(1, "givenCondition is required").describe("Given precondition (BDD: 'Given …')"),
+  whenAction: z.string().min(1, "whenAction is required").describe("Action being tested (BDD: 'When …')"),
+  thenOutcome: z.string().min(1, "thenOutcome is required").describe("Expected result (BDD: 'Then …')"),
+  description: z.string().optional().describe("Optional human-readable description"),
+  scenarioCategory: z.enum(["happy_path", "error_scenario", "edge_case"]).optional().default("happy_path"),
+  status: CriterionStatusEnum.optional().default("draft"),
+});
+
 // Kanban status tool
 const KanbanEntityTypeEnum = z.enum(["feature", "story", "criterion"]);
 
@@ -411,6 +421,33 @@ export async function handleListTools() {
             limit: { type: "number", default: 50 },
             offset: { type: "number", default: 0 },
           },
+        },
+      },
+      {
+        name: "vibemap_create_acceptance_criterion",
+        description:
+          "Create a new acceptance criterion for a user story in BDD format (Given/When/Then). Use this to flesh out what 'done' means for a story before or during implementation. You can call this multiple times to add multiple scenarios (happy path, error cases, edge cases) to the same story.",
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+        inputSchema: {
+          type: "object",
+          properties: {
+            storyId: { type: "string", description: "ID of the user story this criterion belongs to" },
+            givenCondition: { type: "string", description: "Precondition / context ('Given …')" },
+            whenAction: { type: "string", description: "Action performed ('When …')" },
+            thenOutcome: { type: "string", description: "Expected result ('Then …')" },
+            description: { type: "string", description: "Optional plain-text summary" },
+            scenarioCategory: {
+              type: "string",
+              enum: ["happy_path", "error_scenario", "edge_case"],
+              default: "happy_path",
+            },
+            status: {
+              type: "string",
+              enum: ["draft", "pending", "passed", "failed"],
+              default: "draft",
+            },
+          },
+          required: ["storyId", "givenCondition", "whenAction", "thenOutcome"],
         },
       },
       {
@@ -726,6 +763,24 @@ export async function handleCallTool(request: CallToolRequest) {
           status: raw.status as CriterionStatus | undefined,
           limit: (raw.limit as number | undefined) ?? 50,
           offset: (raw.offset as number | undefined) ?? 0,
+        });
+        const clean = stripFields(result, GLOBAL_STRIP);
+        return { content: [{ type: "text", text: JSON.stringify(clean, null, 2) }] };
+      }
+
+      // ── vibemap_create_acceptance_criterion ───────────────────────────────
+      case "vibemap_create_acceptance_criterion": {
+        const parsed = CreateCriterionSchema.parse(args);
+        const { storyId, givenCondition, whenAction, thenOutcome, ...rest } = parsed;
+        const client = getVibeClient();
+        const result = await client.createAcceptanceCriterion({
+          story_id: storyId,
+          given_condition: givenCondition,
+          when_action: whenAction,
+          then_outcome: thenOutcome,
+          description: rest.description,
+          scenario_category: rest.scenarioCategory,
+          status: rest.status,
         });
         const clean = stripFields(result, GLOBAL_STRIP);
         return { content: [{ type: "text", text: JSON.stringify(clean, null, 2) }] };

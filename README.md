@@ -1,4 +1,4 @@
-# @vibemap/mcp-server
+# @vibemap.ai/mcp-server
 
 Connect your IDE agent to [VibeMap](https://vibemap.ai) via the [Model Context Protocol](https://modelcontextprotocol.io). Load project specs into any MCP-compatible AI coding agent, or reverse-engineer an existing codebase back into structured VibeMap assets.
 
@@ -9,7 +9,7 @@ Connect your IDE agent to [VibeMap](https://vibemap.ai) via the [Model Context P
   "mcpServers": {
     "vibemap": {
       "command": "npx",
-      "args": ["-y", "@vibemap/mcp-server"],
+      "args": ["-y", "@vibemap.ai/mcp-server"],
       "env": {
         "VIBEMAP_API_KEY": "vm_your_token_here",
         "VIBEMAP_BASE_URL": "https://vibemap.ai"
@@ -43,7 +43,7 @@ Config file: `~/Library/Application Support/Claude/claude_desktop_config.json` (
   "mcpServers": {
     "vibemap": {
       "command": "npx",
-      "args": ["-y", "@vibemap/mcp-server"],
+      "args": ["-y", "@vibemap.ai/mcp-server"],
       "env": {
         "VIBEMAP_API_KEY": "vm_your_token_here",
         "VIBEMAP_BASE_URL": "https://vibemap.ai"
@@ -63,7 +63,7 @@ Open **Settings → MCP** and add:
 {
   "vibemap": {
     "command": "npx",
-    "args": ["-y", "@vibemap/mcp-server"],
+    "args": ["-y", "@vibemap.ai/mcp-server"],
     "env": {
       "VIBEMAP_API_KEY": "vm_your_token_here",
       "VIBEMAP_BASE_URL": "https://vibemap.ai"

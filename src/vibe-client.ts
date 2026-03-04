@@ -77,6 +77,16 @@ export interface UpdateCriterionData {
   scenario_category?: "happy_path" | "error_scenario" | "edge_case";
 }
 
+export interface CreateCriterionData {
+  story_id: string;
+  given_condition: string;
+  when_action: string;
+  then_outcome: string;
+  description?: string;
+  scenario_category?: "happy_path" | "error_scenario" | "edge_case";
+  status?: CriterionStatus;
+}
+
 export interface ListFeaturesOptions {
   project_id: string;
   status?: FeatureStatus;
@@ -236,6 +246,13 @@ export class VibeMapClient {
 
   async getCriterion(id: string): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>(`/api/crud/acceptance-criteria${this.buildQuery({ id })}`);
+  }
+
+  async createAcceptanceCriterion(data: CreateCriterionData): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>("/api/crud/acceptance-criteria", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
   }
 
   async updateAcceptanceCriterion(id: string, data: UpdateCriterionData): Promise<Record<string, unknown>> {

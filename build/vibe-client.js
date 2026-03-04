@@ -98,6 +98,12 @@ export class VibeMapClient {
     async getCriterion(id) {
         return this.request(`/api/crud/acceptance-criteria${this.buildQuery({ id })}`);
     }
+    async createAcceptanceCriterion(data) {
+        return this.request("/api/crud/acceptance-criteria", {
+            method: "POST",
+            body: JSON.stringify(data),
+        });
+    }
     async updateAcceptanceCriterion(id, data) {
         return this.request("/api/crud/acceptance-criteria", {
             method: "PUT",
