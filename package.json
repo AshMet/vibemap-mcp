@@ -1,19 +1,45 @@
 {
-  "name": "mcp-server",
+  "name": "@vibemap/mcp-server",
   "version": "1.0.0",
+  "description": "VibeMap MCP Server — connect your IDE agent to VibeMap via the Model Context Protocol",
   "main": "build/index.js",
   "type": "module",
+  "bin": {
+    "vibemap-mcp": "build/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "build/**/*",
+    "README.md"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "vibemap",
+    "ai",
+    "agent",
+    "ide"
+  ],
+  "author": "VibeMap",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vibemap/vibemap"
+  },
+  "homepage": "https://vibemap.ai/docs/developer-docs/mcp-server/introduction",
   "scripts": {
     "build": "tsc",
     "start": "node build/index.js",
     "dev": "tsc -w",
+    "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.3",
     "@types/node-fetch": "^2.6.13",

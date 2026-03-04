@@ -98,6 +98,31 @@ describe("MCP Tools", () => {
         expect(tool.inputSchema.type).toBe("object");
       }
     });
+
+    it("all 15 expected tool names are present", async () => {
+      const result = await handleListTools();
+      const names = result.tools.map((t: { name: string }) => t.name);
+      const expected = [
+        "vibemap_list_projects",
+        "vibemap_get_project_context",
+        "vibemap_list_features",
+        "vibemap_create_feature",
+        "vibemap_update_feature",
+        "vibemap_list_user_stories",
+        "vibemap_create_user_story",
+        "vibemap_update_user_story",
+        "vibemap_list_acceptance_criteria",
+        "vibemap_update_acceptance_criterion",
+        "vibemap_update_kanban_status",
+        "vibemap_get_kanban_board",
+        "vibemap_scan_codebase",
+        "vibemap_analyze_codebase",
+        "vibemap_get_generation_status",
+      ];
+      for (const name of expected) {
+        expect(names).toContain(name);
+      }
+    });
   });
 
   // ── vibemap_list_projects ────────────────────────────────────────────────────
@@ -119,6 +144,13 @@ describe("MCP Tools", () => {
       expect(data[0].slug).toBeUndefined();
       expect(data[0].embedding).toBeUndefined();
       expect(data[0].name).toBe("P");
+    });
+
+    it("returns empty array when no projects exist", async () => {
+      stableMockClient.listProjects.mockResolvedValue([]);
+      const result = await handleCallTool(makeRequest("vibemap_list_projects"));
+      const data = JSON.parse(result.content[0].text);
+      expect(data).toEqual([]);
     });
   });
 
@@ -220,6 +252,12 @@ describe("MCP Tools", () => {
         expect.objectContaining({ status: "in_progress", priority: "high" })
       );
     });
+
+    it("throws on missing projectId", async () => {
+      await expect(
+        handleCallTool(makeRequest("vibemap_list_features", {}))
+      ).rejects.toThrow(McpError);
+    });
   });
 
   // ── vibemap_create_feature ───────────────────────────────────────────────────
@@ -243,6 +281,56 @@ describe("MCP Tools", () => {
         handleCallTool(makeRequest("vibemap_create_feature", { projectId: "proj-1" }))
       ).rejects.toThrow(McpError);
     });
+
+    it("throws on missing projectId", async () => {
+      await expect(
+        handleCallTool(makeRequest("vibemap_create_feature", { name: "Payments" }))
+      ).rejects.toThrow(McpError);
+    });
+  });
+
+  // ── vibemap_update_feature ───────────────────────────────────────────────────
+  describe("vibemap_update_feature", () => {
+    it("updates a feature's name and priority", async () => {
+      stableMockClient.updateFeature.mockResolvedValue({
+        id: "f1",
+        name: "Updated Auth",
+        priority: "high",
+        status: "open",
+      });
+
+      const result = await handleCallTool(makeRequest("vibemap_update_feature", {
+        featureId: "f1",
+        name: "Updated Auth",
+        priority: "high",
+      }));
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.id).toBe("f1");
+      expect(data.name).toBe("Updated Auth");
+      expect(stableMockClient.updateFeature).toHaveBeenCalledWith(
+        "f1",
+        expect.objectContaining({ name: "Updated Auth", priority: "high" })
+      );
+    });
+
+    it("updates a feature's status", async () => {
+      stableMockClient.updateFeature.mockResolvedValue({ id: "f1", status: "completed" });
+
+      const result = await handleCallTool(makeRequest("vibemap_update_feature", {
+        featureId: "f1",
+        status: "completed",
+      }));
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.status).toBe("completed");
+    });
+
+    it("throws on missing featureId", async () => {
+      await expect(
+        handleCallTool(makeRequest("vibemap_update_feature", { name: "New Name" }))
+      ).rejects.toThrow(McpError);
+    });
   });
 
   // ── vibemap_list_user_stories ────────────────────────────────────────────────
@@ -261,9 +349,109 @@ describe("MCP Tools", () => {
       expect(data.user_stories).toHaveLength(1);
     });
 
+    it("lists stories filtered by project", async () => {
+      stableMockClient.listUserStories.mockResolvedValue({
+        user_stories: [{ id: "s1", title: "Login" }, { id: "s2", title: "Signup" }],
+        meta: { total: 2 },
+      });
+
+      const result = await handleCallTool(makeRequest("vibemap_list_user_stories", {
+        projectId: "proj-1",
+      }));
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.user_stories).toHaveLength(2);
+    });
+
     it("throws when neither projectId nor featureId is provided", async () => {
       await expect(
         handleCallTool(makeRequest("vibemap_list_user_stories", {}))
+      ).rejects.toThrow(McpError);
+    });
+  });
+
+  // ── vibemap_create_user_story ────────────────────────────────────────────────
+  describe("vibemap_create_user_story", () => {
+    it("creates a user story with BDD fields", async () => {
+      stableMockClient.createUserStory.mockResolvedValue({
+        id: "s-new",
+        title: "User can log in",
+        feature_id: "f1",
+        status: "draft",
+      });
+
+      const result = await handleCallTool(makeRequest("vibemap_create_user_story", {
+        featureId: "f1",
+        title: "User can log in",
+        description: "As a user I want to log in",
+        userRole: "user",
+        iWantTo: "authenticate with my email and password",
+        soThat: "I can access my account",
+      }));
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.id).toBe("s-new");
+      expect(data.title).toBe("User can log in");
+      expect(stableMockClient.createUserStory).toHaveBeenCalledWith(
+        expect.objectContaining({ feature_id: "f1", title: "User can log in" })
+      );
+    });
+
+    it("throws on missing featureId", async () => {
+      await expect(
+        handleCallTool(makeRequest("vibemap_create_user_story", {
+          title: "Login",
+          description: "login desc",
+        }))
+      ).rejects.toThrow(McpError);
+    });
+
+    it("throws on missing title", async () => {
+      await expect(
+        handleCallTool(makeRequest("vibemap_create_user_story", {
+          featureId: "f1",
+          description: "login desc",
+        }))
+      ).rejects.toThrow(McpError);
+    });
+  });
+
+  // ── vibemap_update_user_story ────────────────────────────────────────────────
+  describe("vibemap_update_user_story", () => {
+    it("updates a story's title", async () => {
+      stableMockClient.updateUserStory.mockResolvedValue({
+        id: "s1",
+        title: "Updated title",
+      });
+
+      const result = await handleCallTool(makeRequest("vibemap_update_user_story", {
+        storyId: "s1",
+        title: "Updated title",
+      }));
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.title).toBe("Updated title");
+      expect(stableMockClient.updateUserStory).toHaveBeenCalledWith(
+        "s1",
+        expect.objectContaining({ title: "Updated title" })
+      );
+    });
+
+    it("updates a story's status", async () => {
+      stableMockClient.updateUserStory.mockResolvedValue({ id: "s1", status: "in_progress" });
+
+      const result = await handleCallTool(makeRequest("vibemap_update_user_story", {
+        storyId: "s1",
+        status: "in_progress",
+      }));
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.status).toBe("in_progress");
+    });
+
+    it("throws on missing storyId", async () => {
+      await expect(
+        handleCallTool(makeRequest("vibemap_update_user_story", { title: "X" }))
       ).rejects.toThrow(McpError);
     });
   });
@@ -287,9 +475,86 @@ describe("MCP Tools", () => {
       expect(data.acceptance_criteria[0].given_condition).toBe("I am logged in");
     });
 
+    it("lists criteria by feature", async () => {
+      stableMockClient.listAcceptanceCriteria.mockResolvedValue({
+        acceptance_criteria: [{ id: "ac1" }, { id: "ac2" }],
+        meta: {},
+      });
+
+      const result = await handleCallTool(makeRequest("vibemap_list_acceptance_criteria", {
+        featureId: "f1",
+      }));
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.acceptance_criteria).toHaveLength(2);
+    });
+
     it("throws when no scope is provided", async () => {
       await expect(
         handleCallTool(makeRequest("vibemap_list_acceptance_criteria", {}))
+      ).rejects.toThrow(McpError);
+    });
+  });
+
+  // ── vibemap_update_acceptance_criterion ──────────────────────────────────────
+  describe("vibemap_update_acceptance_criterion", () => {
+    it("marks a criterion as passed", async () => {
+      stableMockClient.updateAcceptanceCriterion.mockResolvedValue({
+        id: "ac1",
+        status: "passed",
+      });
+
+      const result = await handleCallTool(makeRequest("vibemap_update_acceptance_criterion", {
+        criterionId: "ac1",
+        status: "passed",
+      }));
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.status).toBe("passed");
+      expect(stableMockClient.updateAcceptanceCriterion).toHaveBeenCalledWith(
+        "ac1",
+        expect.objectContaining({ status: "passed" })
+      );
+    });
+
+    it("marks a criterion as failed", async () => {
+      stableMockClient.updateAcceptanceCriterion.mockResolvedValue({
+        id: "ac1",
+        status: "failed",
+      });
+
+      const result = await handleCallTool(makeRequest("vibemap_update_acceptance_criterion", {
+        criterionId: "ac1",
+        status: "failed",
+      }));
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.status).toBe("failed");
+    });
+
+    it("updates BDD fields", async () => {
+      stableMockClient.updateAcceptanceCriterion.mockResolvedValue({ id: "ac1" });
+
+      await handleCallTool(makeRequest("vibemap_update_acceptance_criterion", {
+        criterionId: "ac1",
+        givenCondition: "I am on the login page",
+        whenAction: "I submit valid credentials",
+        thenOutcome: "I am redirected to the dashboard",
+      }));
+
+      expect(stableMockClient.updateAcceptanceCriterion).toHaveBeenCalledWith(
+        "ac1",
+        expect.objectContaining({
+          given_condition: "I am on the login page",
+          when_action: "I submit valid credentials",
+          then_outcome: "I am redirected to the dashboard",
+        })
+      );
+    });
+
+    it("throws on missing criterionId", async () => {
+      await expect(
+        handleCallTool(makeRequest("vibemap_update_acceptance_criterion", { status: "passed" }))
       ).rejects.toThrow(McpError);
     });
   });
@@ -312,6 +577,51 @@ describe("MCP Tools", () => {
       expect(data.newStatus).toBe("open");
     });
 
+    it("transitions a feature from open to in_progress", async () => {
+      stableMockClient.getFeature.mockResolvedValue({ id: "f1", status: "open" });
+      stableMockClient.updateFeature.mockResolvedValue({ id: "f1", status: "in_progress" });
+
+      const result = await handleCallTool(makeRequest("vibemap_update_kanban_status", {
+        entityType: "feature",
+        entityId: "f1",
+        newStatus: "in_progress",
+      }));
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.success).toBe(true);
+      expect(data.newStatus).toBe("in_progress");
+    });
+
+    it("transitions a feature from in_progress back to open (reverse)", async () => {
+      stableMockClient.getFeature.mockResolvedValue({ id: "f1", status: "in_progress" });
+      stableMockClient.updateFeature.mockResolvedValue({ id: "f1", status: "open" });
+
+      const result = await handleCallTool(makeRequest("vibemap_update_kanban_status", {
+        entityType: "feature",
+        entityId: "f1",
+        newStatus: "open",
+        notes: "Reopening — needs more work",
+      }));
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.success).toBe(true);
+      expect(data.newStatus).toBe("open");
+    });
+
+    it("transitions a feature to completed", async () => {
+      stableMockClient.getFeature.mockResolvedValue({ id: "f1", status: "in_progress" });
+      stableMockClient.updateFeature.mockResolvedValue({ id: "f1", status: "completed" });
+
+      const result = await handleCallTool(makeRequest("vibemap_update_kanban_status", {
+        entityType: "feature",
+        entityId: "f1",
+        newStatus: "completed",
+      }));
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.success).toBe(true);
+    });
+
     it("returns error for invalid transition (draft → completed)", async () => {
       stableMockClient.getFeature.mockResolvedValue({ id: "f1", status: "draft" });
 
@@ -325,6 +635,33 @@ describe("MCP Tools", () => {
       expect(result.content[0].text).toContain("Invalid transition");
       expect(result.content[0].text).toContain("draft");
       expect(result.content[0].text).toContain("completed");
+    });
+
+    it("returns error for invalid transition (draft → in_progress for feature)", async () => {
+      stableMockClient.getFeature.mockResolvedValue({ id: "f1", status: "draft" });
+
+      const result = await handleCallTool(makeRequest("vibemap_update_kanban_status", {
+        entityType: "feature",
+        entityId: "f1",
+        newStatus: "in_progress",
+      }));
+
+      expect(result.isError).toBe(true);
+    });
+
+    it("transitions a story from draft to has_criteria", async () => {
+      stableMockClient.getUserStory.mockResolvedValue({ id: "s1", status: "draft" });
+      stableMockClient.updateUserStory.mockResolvedValue({ id: "s1", status: "has_criteria" });
+
+      const result = await handleCallTool(makeRequest("vibemap_update_kanban_status", {
+        entityType: "story",
+        entityId: "s1",
+        newStatus: "has_criteria",
+      }));
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.success).toBe(true);
+      expect(data.newStatus).toBe("has_criteria");
     });
 
     it("transitions a story from open to in_progress", async () => {
@@ -343,6 +680,19 @@ describe("MCP Tools", () => {
       expect(data.newStatus).toBe("in_progress");
     });
 
+    it("returns error for invalid story transition (draft → completed)", async () => {
+      stableMockClient.getUserStory.mockResolvedValue({ id: "s1", status: "draft" });
+
+      const result = await handleCallTool(makeRequest("vibemap_update_kanban_status", {
+        entityType: "story",
+        entityId: "s1",
+        newStatus: "completed",
+      }));
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("Invalid transition");
+    });
+
     it("transitions a criterion from pending to passed", async () => {
       stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "pending" });
       stableMockClient.updateAcceptanceCriterion.mockResolvedValue({ id: "ac1", status: "passed" });
@@ -356,6 +706,47 @@ describe("MCP Tools", () => {
       const data = JSON.parse(result.content[0].text);
       expect(data.success).toBe(true);
       expect(data.newStatus).toBe("passed");
+    });
+
+    it("transitions a criterion from pending to failed", async () => {
+      stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "pending" });
+      stableMockClient.updateAcceptanceCriterion.mockResolvedValue({ id: "ac1", status: "failed" });
+
+      const result = await handleCallTool(makeRequest("vibemap_update_kanban_status", {
+        entityType: "criterion",
+        entityId: "ac1",
+        newStatus: "failed",
+      }));
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.success).toBe(true);
+      expect(data.newStatus).toBe("failed");
+    });
+
+    it("transitions a criterion from passed back to pending (reopen)", async () => {
+      stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "passed" });
+      stableMockClient.updateAcceptanceCriterion.mockResolvedValue({ id: "ac1", status: "pending" });
+
+      const result = await handleCallTool(makeRequest("vibemap_update_kanban_status", {
+        entityType: "criterion",
+        entityId: "ac1",
+        newStatus: "pending",
+      }));
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.success).toBe(true);
+    });
+
+    it("returns error for invalid criterion transition (draft → passed)", async () => {
+      stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "draft" });
+
+      const result = await handleCallTool(makeRequest("vibemap_update_kanban_status", {
+        entityType: "criterion",
+        entityId: "ac1",
+        newStatus: "passed",
+      }));
+
+      expect(result.isError).toBe(true);
     });
   });
 
@@ -386,6 +777,37 @@ describe("MCP Tools", () => {
       expect(data._totals.features).toBe(2);
       expect(data._totals.stories).toBe(2);
     });
+
+    it("nested stories appear under correct feature column", async () => {
+      stableMockClient.listFeatures.mockResolvedValue({
+        features: [
+          { id: "f1", name: "Auth", status: "open" },
+        ],
+      });
+      stableMockClient.listUserStories.mockResolvedValue({
+        user_stories: [
+          { id: "s1", feature_id: "f1", title: "Login", status: "in_progress" },
+          { id: "s2", feature_id: "f1", title: "Signup", status: "draft" },
+        ],
+      });
+
+      const result = await handleCallTool(makeRequest("vibemap_get_kanban_board", {
+        projectId: "proj-1",
+      }));
+
+      const data = JSON.parse(result.content[0].text);
+      const openFeature = data.board.open[0];
+      // Stories are stored as _stories (sub-board by story status) and _storyCount
+      expect(openFeature._storyCount).toBe(2);
+      expect(openFeature._stories.in_progress).toHaveLength(1);
+      expect(openFeature._stories.draft).toHaveLength(1);
+    });
+
+    it("throws on missing projectId", async () => {
+      await expect(
+        handleCallTool(makeRequest("vibemap_get_kanban_board", {}))
+      ).rejects.toThrow(McpError);
+    });
   });
 
   // ── vibemap_scan_codebase ────────────────────────────────────────────────────
@@ -400,6 +822,22 @@ describe("MCP Tools", () => {
 
       expect(result.content[0].text).toContain("📁 src");
       expect(walkDir).toHaveBeenCalledWith("/my/project", 3);
+    });
+
+    it("uses default depth of 4 when not specified", async () => {
+      vi.mocked(walkDir).mockResolvedValue("📁 src\n");
+
+      await handleCallTool(makeRequest("vibemap_scan_codebase", {
+        localPath: "/my/project",
+      }));
+
+      expect(walkDir).toHaveBeenCalledWith("/my/project", 4);
+    });
+
+    it("throws on missing localPath", async () => {
+      await expect(
+        handleCallTool(makeRequest("vibemap_scan_codebase", {}))
+      ).rejects.toThrow(McpError);
     });
   });
 
@@ -427,6 +865,37 @@ describe("MCP Tools", () => {
         expect.objectContaining({ projectId: "proj-1" })
       );
     });
+
+    it("uses custom taskTitle when provided", async () => {
+      vi.mocked(buildCodebaseDigest).mockResolvedValue({
+        tree: "",
+        stats: { totalFiles: 5, totalDirs: 1, byExtension: {}, estimatedSizeKb: 10 },
+        keyFiles: [],
+      });
+      stableMockClient.submitTask.mockResolvedValue({ sessionId: "task-xyz" });
+
+      await handleCallTool(makeRequest("vibemap_analyze_codebase", {
+        projectId: "proj-1",
+        localPath: "/my/project",
+        taskTitle: "My Custom Analysis",
+      }));
+
+      expect(stableMockClient.submitTask).toHaveBeenCalledWith(
+        expect.objectContaining({ title: "My Custom Analysis" })
+      );
+    });
+
+    it("throws on missing projectId", async () => {
+      await expect(
+        handleCallTool(makeRequest("vibemap_analyze_codebase", { localPath: "/path" }))
+      ).rejects.toThrow(McpError);
+    });
+
+    it("throws on missing localPath", async () => {
+      await expect(
+        handleCallTool(makeRequest("vibemap_analyze_codebase", { projectId: "proj-1" }))
+      ).rejects.toThrow(McpError);
+    });
   });
 
   // ── vibemap_get_generation_status ───────────────────────────────────────────
@@ -445,6 +914,26 @@ describe("MCP Tools", () => {
       const data = JSON.parse(result.content[0].text);
       expect(data.status).toBe("completed");
       expect(data.featuresCreated).toBe(5);
+    });
+
+    it("returns in-progress status", async () => {
+      stableMockClient.getTaskStatus.mockResolvedValue({
+        status: "in_progress",
+        progress: 0.6,
+      });
+
+      const result = await handleCallTool(makeRequest("vibemap_get_generation_status", {
+        sessionId: "task-running",
+      }));
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.status).toBe("in_progress");
+    });
+
+    it("throws on missing sessionId", async () => {
+      await expect(
+        handleCallTool(makeRequest("vibemap_get_generation_status", {}))
+      ).rejects.toThrow(McpError);
     });
   });
 
@@ -473,6 +962,16 @@ describe("MCP Tools", () => {
           // missing required projectId and name
         }))
       ).rejects.toThrow(McpError);
+    });
+
+    it("wraps API client errors as McpError InternalError", async () => {
+      stableMockClient.listProjects.mockRejectedValue(new Error("Network timeout"));
+
+      await expect(
+        handleCallTool(makeRequest("vibemap_list_projects"))
+      ).rejects.toMatchObject({
+        code: ErrorCode.InternalError,
+      });
     });
   });
 });

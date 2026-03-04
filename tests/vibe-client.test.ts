@@ -15,6 +15,8 @@ afterAll(() => server.close());
 describe("VibeMapClient", () => {
   const client = new VibeMapClient({ baseUrl, apiKey });
 
+  // ── Projects ───────────────────────────────────────────────────────────────
+
   it("lists projects successfully", async () => {
     const mockProjects = [{ id: "1", name: "Project 1" }];
     server.use(
@@ -43,25 +45,141 @@ describe("VibeMapClient", () => {
     expect(project).toEqual(mockProject);
   });
 
-  it("handles API errors correctly", async () => {
+  it("sends Authorization header with API key", async () => {
+    let capturedAuth = "";
     server.use(
-      http.get(`${baseUrl}/api/crud/projects`, () => {
-        return new HttpResponse(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+      http.get(`${baseUrl}/api/crud/projects`, ({ request }) => {
+        capturedAuth = request.headers.get("authorization") ?? "";
+        return HttpResponse.json([]);
       })
     );
 
-    await expect(client.listProjects()).rejects.toThrow("Unauthorized");
+    await client.listProjects();
+    expect(capturedAuth).toBe(`Bearer ${apiKey}`);
   });
 
-  it("handles network errors or malformed JSON", async () => {
+  // ── Features ───────────────────────────────────────────────────────────────
+
+  it("lists features with query params", async () => {
+    let capturedUrl = "";
     server.use(
-      http.get(`${baseUrl}/api/crud/projects`, () => {
-        return new HttpResponse("Not JSON", { status: 500 });
+      http.get(`${baseUrl}/api/crud/features`, ({ request }) => {
+        capturedUrl = request.url;
+        return HttpResponse.json({ features: [], meta: {} });
       })
     );
 
-    await expect(client.listProjects()).rejects.toThrow("Internal Server Error");
+    await client.listFeatures({ project_id: "proj-1", status: "open", limit: 10 });
+    expect(capturedUrl).toContain("project_id=proj-1");
+    expect(capturedUrl).toContain("status=open");
+    expect(capturedUrl).toContain("limit=10");
   });
+
+  it("creates a feature via POST", async () => {
+    const created = { id: "f1", name: "Auth" };
+    server.use(
+      http.post(`${baseUrl}/api/crud/features`, async ({ request }) => {
+        const body = (await request.json()) as any;
+        expect(body.name).toBe("Auth");
+        expect(body.project_id).toBe("proj-1");
+        return HttpResponse.json(created);
+      })
+    );
+
+    const result = await client.createFeature({ project_id: "proj-1", name: "Auth" });
+    expect(result).toEqual(created);
+  });
+
+  it("updates a feature via PUT", async () => {
+    server.use(
+      http.put(`${baseUrl}/api/crud/features`, async ({ request }) => {
+        const body = (await request.json()) as any;
+        expect(body.id).toBe("f1");
+        expect(body.status).toBe("completed");
+        return HttpResponse.json({ id: "f1", status: "completed" });
+      })
+    );
+
+    const result = await client.updateFeature("f1", { status: "completed" });
+    expect((result as any).status).toBe("completed");
+  });
+
+  // ── User Stories ───────────────────────────────────────────────────────────
+
+  it("lists user stories", async () => {
+    server.use(
+      http.get(`${baseUrl}/api/crud/user-stories`, ({ request }) => {
+        const url = new URL(request.url);
+        expect(url.searchParams.get("feature_id")).toBe("f1");
+        return HttpResponse.json({ user_stories: [{ id: "s1" }], meta: {} });
+      })
+    );
+
+    const result = await client.listUserStories({ feature_id: "f1" });
+    expect((result as any).user_stories).toHaveLength(1);
+  });
+
+  it("creates a user story via POST", async () => {
+    server.use(
+      http.post(`${baseUrl}/api/crud/user-stories`, async ({ request }) => {
+        const body = (await request.json()) as any;
+        expect(body.title).toBe("Login");
+        return HttpResponse.json({ id: "s-new", title: "Login" });
+      })
+    );
+
+    const result = await client.createUserStory({
+      feature_id: "f1",
+      title: "Login",
+      description: "As a user I want to login",
+    });
+    expect((result as any).title).toBe("Login");
+  });
+
+  it("updates a user story status", async () => {
+    server.use(
+      http.put(`${baseUrl}/api/crud/user-stories`, async ({ request }) => {
+        const body = (await request.json()) as any;
+        expect(body.id).toBe("story-1");
+        expect(body.status).toBe("completed");
+        return HttpResponse.json({ success: true });
+      })
+    );
+
+    const result = await client.updateUserStory("story-1", { status: "completed" });
+    expect(result).toEqual({ success: true });
+  });
+
+  // ── Acceptance Criteria ───────────────────────────────────────────────────
+
+  it("lists acceptance criteria", async () => {
+    server.use(
+      http.get(`${baseUrl}/api/crud/acceptance-criteria`, ({ request }) => {
+        const url = new URL(request.url);
+        expect(url.searchParams.get("story_id")).toBe("s1");
+        return HttpResponse.json({ acceptance_criteria: [{ id: "ac1" }], meta: {} });
+      })
+    );
+
+    const result = await client.listAcceptanceCriteria({ story_id: "s1" });
+    expect((result as any).acceptance_criteria).toHaveLength(1);
+  });
+
+  it("updates an acceptance criterion via PUT", async () => {
+    server.use(
+      http.put(`${baseUrl}/api/crud/acceptance-criteria`, async ({ request }) => {
+        const body = (await request.json()) as any;
+        expect(body.id).toBe("ac1");
+        expect(body.status).toBe("passed");
+        return HttpResponse.json({ id: "ac1", status: "passed" });
+      })
+    );
+
+    const result = await client.updateAcceptanceCriterion("ac1", { status: "passed" });
+    expect((result as any).status).toBe("passed");
+  });
+
+  // ── Tasks ─────────────────────────────────────────────────────────────────
 
   it("submits a task correctly", async () => {
     const mockSession = { sessionId: "session-123" };
@@ -83,17 +201,61 @@ describe("VibeMapClient", () => {
     expect(result).toEqual(mockSession);
   });
 
-  it("updates a user story status", async () => {
+  it("gets task status by sessionId", async () => {
     server.use(
-      http.put(`${baseUrl}/api/crud/user-stories`, async ({ request }) => {
-        const body = (await request.json()) as any;
-        expect(body.id).toBe("story-1");
-        expect(body.status).toBe("completed");
-        return HttpResponse.json({ success: true });
+      http.get(`${baseUrl}/api/tasks/session-abc/status`, () => {
+        return HttpResponse.json({ status: "completed", featuresCreated: 3 });
       })
     );
 
-    const result = await client.updateUserStory("story-1", { status: "completed" });
-    expect(result).toEqual({ success: true });
+    const result = await client.getTaskStatus("session-abc");
+    expect((result as any).status).toBe("completed");
+    expect((result as any).featuresCreated).toBe(3);
+  });
+
+  // ── Error handling ────────────────────────────────────────────────────────
+
+  it("handles 401 Unauthorized correctly", async () => {
+    server.use(
+      http.get(`${baseUrl}/api/crud/projects`, () => {
+        return new HttpResponse(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+      })
+    );
+
+    await expect(client.listProjects()).rejects.toThrow("Unauthorized");
+  });
+
+  it("handles 404 Not Found", async () => {
+    server.use(
+      http.get(`${baseUrl}/api/crud/projects`, () => {
+        return new HttpResponse(JSON.stringify({ error: "Not Found" }), { status: 404 });
+      })
+    );
+
+    await expect(client.listProjects()).rejects.toThrow("Not Found");
+  });
+
+  it("handles network errors or malformed JSON", async () => {
+    server.use(
+      http.get(`${baseUrl}/api/crud/projects`, () => {
+        return new HttpResponse("Not JSON", { status: 500 });
+      })
+    );
+
+    await expect(client.listProjects()).rejects.toThrow("Internal Server Error");
+  });
+
+  it("omits undefined query params from URL", async () => {
+    let capturedUrl = "";
+    server.use(
+      http.get(`${baseUrl}/api/crud/features`, ({ request }) => {
+        capturedUrl = request.url;
+        return HttpResponse.json({ features: [], meta: {} });
+      })
+    );
+
+    await client.listFeatures({ project_id: "proj-1", status: undefined });
+    expect(capturedUrl).not.toContain("status=");
+    expect(capturedUrl).toContain("project_id=proj-1");
   });
 });

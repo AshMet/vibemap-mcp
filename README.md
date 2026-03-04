@@ -1,138 +1,114 @@
-# VibeMap MCP Server
+# @vibemap/mcp-server
 
-A Model Context Protocol (MCP) server that creates a **two-way sync** between VibeMap and your IDE or AI coding agent.
+Connect your IDE agent to [VibeMap](https://vibemap.ai) via the [Model Context Protocol](https://modelcontextprotocol.io). Load project specs into any MCP-compatible AI coding agent, or reverse-engineer an existing codebase back into structured VibeMap assets.
 
-**Inbound** → Scan an existing codebase and let VibeMap AI reverse-engineer it into structured features, user stories, and acceptance criteria.
+## Quick Start
 
-**Outbound** → Connect your IDE agent to VibeMap to consume all planned specs and auto-build the product, tracking progress in real-time.
-
----
-
-## Features
-
-| Capability | Description |
-|---|---|
-| **Project Context** | Serve full VibeMap project specs (features, stories, AC, personas, pages, schema) to any connected IDE |
-| **Codebase Analysis** | Scan a local project and submit it for AI reverse-engineering |
-| **Kanban Tracking** | Auto-advance features/stories/criteria through kanban stages as your IDE builds them |
-| **Full CRUD** | Create, read, and update features, user stories, and acceptance criteria |
-| **Generation Status** | Poll ongoing AI generation tasks |
-
----
-
-## Setup
-
-### 1. Build the Server
-
-```bash
-cd mcp-server
-npm install
-npm run build
-```
-
-### 2. Get an API Key
-
-1. Log in to VibeMap → **Account > Developer**
-2. Click **Generate Key**, name it (e.g. `"Cursor"`), and copy the token (starts with `vm_`)
-
-### 3. Configure your MCP Client
-
-**Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 ```json
 {
   "mcpServers": {
     "vibemap": {
-      "command": "node",
-      "args": ["/absolute/path/to/vibemap/mcp-server/build/index.js"],
+      "command": "npx",
+      "args": ["-y", "@vibemap/mcp-server"],
       "env": {
         "VIBEMAP_API_KEY": "vm_your_token_here",
-        "VIBEMAP_BASE_URL": "http://localhost:3000"
+        "VIBEMAP_BASE_URL": "https://vibemap.ai"
       }
     }
   }
 }
 ```
 
-**Cursor / Windsurf** — add the same config to your MCP settings file.
+Generate your API key at [vibemap.ai → Account → Developer → API Keys](https://vibemap.ai/account).
 
----
+## What It Does
 
-## Two-Way Workflow
+**Outbound (VibeMap → IDE):** Load your full project context — features, user stories, acceptance criteria, personas, pages, and DB schema — into your IDE agent. The agent builds to spec and updates your VibeMap kanban in real time as it works.
 
-### Inbound: Codebase → VibeMap Specs
+**Inbound (IDE → VibeMap):** Point the server at an existing codebase and VibeMap's AI will reverse-engineer it into a structured set of features, user stories, and acceptance criteria.
 
+## Requirements
+
+- Node.js ≥ 18
+- A [VibeMap](https://vibemap.ai) account
+
+## IDE Setup
+
+### Claude Desktop
+
+Config file: `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows)
+
+```json
+{
+  "mcpServers": {
+    "vibemap": {
+      "command": "npx",
+      "args": ["-y", "@vibemap/mcp-server"],
+      "env": {
+        "VIBEMAP_API_KEY": "vm_your_token_here",
+        "VIBEMAP_BASE_URL": "https://vibemap.ai"
+      }
+    }
+  }
+}
 ```
-1. vibemap_list_projects          ← find or create your project
-2. vibemap_analyze_codebase       ← scan repo + submit to VibeMap AI
-3. vibemap_get_generation_status  ← poll until complete
-4. vibemap_get_project_context    ← review generated specs
+
+Fully restart Claude Desktop after saving. Confirm the 🔨 hammer icon appears in the chat input.
+
+### Cursor
+
+Open **Settings → MCP** and add:
+
+```json
+{
+  "vibemap": {
+    "command": "npx",
+    "args": ["-y", "@vibemap/mcp-server"],
+    "env": {
+      "VIBEMAP_API_KEY": "vm_your_token_here",
+      "VIBEMAP_BASE_URL": "https://vibemap.ai"
+    }
+  }
+}
 ```
 
-### Outbound: VibeMap Specs → Building the Product
+### Windsurf
 
-```
-1. vibemap_get_project_context    ← load all specs into agent context
-2. vibemap_get_kanban_board       ← see what's planned/in-progress/done
-3. ... implement a feature ...
-4. vibemap_update_kanban_status   ← advance feature/story to in_progress
-5. vibemap_update_kanban_status   ← mark acceptance criteria as passed
-6. vibemap_update_kanban_status   ← mark story/feature as completed
-```
+Same format as Cursor. Add to your Windsurf MCP settings file and restart.
 
----
+## Environment Variables
 
-## Available Tools
+| Variable | Description | Default |
+|---|---|---|
+| `VIBEMAP_API_KEY` | Your Personal Access Token (`vm_...`) | **Required** |
+| `VIBEMAP_BASE_URL` | VibeMap instance URL | `http://localhost:3000` |
 
-### Projects
+## Tools
+
+The server exposes **15 tools** via the `vibemap_` prefix:
+
 | Tool | Description |
 |---|---|
-| `vibemap_list_projects` | List all VibeMap projects |
-| `vibemap_get_project_context` | Full project context: features, stories, personas, pages, schema |
-
-### Features
-| Tool | Description |
-|---|---|
-| `vibemap_list_features` | List features with filtering (status, priority, category, search) |
+| `vibemap_list_projects` | List all your projects |
+| `vibemap_get_project_context` | Load full project specs into agent context |
+| `vibemap_list_features` | List features with filtering |
 | `vibemap_create_feature` | Create a new feature |
 | `vibemap_update_feature` | Update feature fields or status |
-
-### User Stories
-| Tool | Description |
-|---|---|
-| `vibemap_list_user_stories` | List stories with filtering by feature/project |
-| `vibemap_create_user_story` | Create a new user story |
+| `vibemap_list_user_stories` | List stories by project or feature |
+| `vibemap_create_user_story` | Create a user story |
 | `vibemap_update_user_story` | Update story fields or status |
+| `vibemap_list_acceptance_criteria` | Fetch BDD criteria |
+| `vibemap_update_acceptance_criterion` | Mark criteria passed/failed |
+| `vibemap_update_kanban_status` | Advance kanban status (with transition validation) |
+| `vibemap_get_kanban_board` | Get real-time board view |
+| `vibemap_scan_codebase` | Walk a local directory |
+| `vibemap_analyze_codebase` | Reverse-engineer a codebase into VibeMap assets |
+| `vibemap_get_generation_status` | Poll AI generation task status |
 
-### Acceptance Criteria
-| Tool | Description |
-|---|---|
-| `vibemap_list_acceptance_criteria` | List criteria by story/feature/project |
-| `vibemap_update_acceptance_criterion` | Update criterion content or status (passed/failed) |
+## Documentation
 
-### Kanban Tracking
-| Tool | Description |
-|---|---|
-| `vibemap_update_kanban_status` | Atomic status transition with validation. Prevents invalid moves. |
-| `vibemap_get_kanban_board` | Real-time board view grouped by stage (draft/open/in_progress/completed) |
+Full docs at [vibemap.ai/docs/developer-docs/mcp-server/introduction](https://vibemap.ai/docs/developer-docs/mcp-server/introduction)
 
-**Stage transitions:**
-- Feature: `draft → open → in_progress → completed`
-- Story: `draft → has_criteria → open → in_progress → completed`
-- Criterion: `draft → pending → passed | failed`
+## License
 
-### Codebase Analysis
-| Tool | Description |
-|---|---|
-| `vibemap_scan_codebase` | Walk directory tree with file stats |
-| `vibemap_analyze_codebase` | Scan + submit to VibeMap AI for reverse engineering. Returns `sessionId`. |
-| `vibemap_get_generation_status` | Poll an AI generation task by `sessionId` |
-
----
-
-## Development
-
-```bash
-npm test          # Run all unit tests (37 tests)
-npm run build     # Compile TypeScript
-npm run dev       # Watch mode
-```
+MIT
