@@ -31,7 +31,10 @@ const CriterionStatusEnum = z.enum(["draft", "pending", "passed", "failed"]);
 const ListFeaturesSchema = ProjectIdSchema.extend({
   status: FeatureStatusEnum.optional().describe("Filter by status"),
   priority: z.enum(["high", "medium", "low"]).optional().describe("Filter by priority"),
-  category: z.enum(["core", "enhancement", "infrastructure"]).optional().describe("Filter by category"),
+  category: z
+    .enum(["core", "enhancement", "infrastructure"])
+    .optional()
+    .describe("Filter by category"),
   search: z.string().optional().describe("Search features by name or description"),
   limit: z.number().int().min(1).max(100).default(50).describe("Max results to return"),
   offset: z.number().int().min(0).default(0).describe("Pagination offset"),
@@ -59,24 +62,30 @@ const UpdateFeatureSchema = z.object({
   status: FeatureStatusEnum.optional(),
 });
 
-const ListStoriesSchema = z.object({
-  projectId: z.string().optional().describe("Filter by project ID"),
-  featureId: z.string().optional().describe("Filter by feature ID (overrides projectId)"),
-  status: StoryStatusEnum.optional().describe("Filter by status"),
-  priority: z.enum(["high", "medium", "low"]).optional().describe("Filter by priority"),
-  search: z.string().optional(),
-  limit: z.number().int().min(1).max(100).default(50),
-  offset: z.number().int().min(0).default(0),
-}).refine((d) => d.projectId || d.featureId, {
-  message: "Either projectId or featureId must be provided",
-});
+const ListStoriesSchema = z
+  .object({
+    projectId: z.string().optional().describe("Filter by project ID"),
+    featureId: z.string().optional().describe("Filter by feature ID (overrides projectId)"),
+    status: StoryStatusEnum.optional().describe("Filter by status"),
+    priority: z.enum(["high", "medium", "low"]).optional().describe("Filter by priority"),
+    search: z.string().optional(),
+    limit: z.number().int().min(1).max(100).default(50),
+    offset: z.number().int().min(0).default(0),
+  })
+  .refine((d) => d.projectId || d.featureId, {
+    message: "Either projectId or featureId must be provided",
+  });
 
 const CreateStorySchema = z.object({
   featureId: z.string().min(1, "featureId is required"),
   title: z.string().min(1, "title is required"),
   description: z.string().min(1, "description is required"),
   priority: z.enum(["high", "medium", "low"]).optional().default("medium"),
-  userRole: z.string().optional().default("user").describe("Role of the user (e.g., 'admin', 'developer')"),
+  userRole: z
+    .string()
+    .optional()
+    .default("user")
+    .describe("Role of the user (e.g., 'admin', 'developer')"),
   iWantTo: z.string().optional().describe("The 'I want to' part of the user story"),
   soThat: z.string().optional().describe("The 'so that' part of the user story"),
   estimatedEffort: z.number().int().min(0).optional().default(0),
@@ -94,16 +103,18 @@ const UpdateStorySchema = z.object({
   soThat: z.string().optional(),
 });
 
-const ListCriteriaSchema = z.object({
-  storyId: z.string().optional().describe("Filter by user story ID"),
-  featureId: z.string().optional().describe("Filter by feature ID"),
-  projectId: z.string().optional().describe("Filter by project ID"),
-  status: CriterionStatusEnum.optional(),
-  limit: z.number().int().min(1).max(100).default(50),
-  offset: z.number().int().min(0).default(0),
-}).refine((d) => d.storyId || d.featureId || d.projectId, {
-  message: "At least one of storyId, featureId, or projectId must be provided",
-});
+const ListCriteriaSchema = z
+  .object({
+    storyId: z.string().optional().describe("Filter by user story ID"),
+    featureId: z.string().optional().describe("Filter by feature ID"),
+    projectId: z.string().optional().describe("Filter by project ID"),
+    status: CriterionStatusEnum.optional(),
+    limit: z.number().int().min(1).max(100).default(50),
+    offset: z.number().int().min(0).default(0),
+  })
+  .refine((d) => d.storyId || d.featureId || d.projectId, {
+    message: "At least one of storyId, featureId, or projectId must be provided",
+  });
 
 const UpdateCriterionSchema = z.object({
   criterionId: z.string().min(1, "criterionId is required"),
@@ -117,11 +128,23 @@ const UpdateCriterionSchema = z.object({
 
 const CreateCriterionSchema = z.object({
   storyId: z.string().min(1, "storyId is required"),
-  givenCondition: z.string().min(1, "givenCondition is required").describe("Given precondition (BDD: 'Given …')"),
-  whenAction: z.string().min(1, "whenAction is required").describe("Action being tested (BDD: 'When …')"),
-  thenOutcome: z.string().min(1, "thenOutcome is required").describe("Expected result (BDD: 'Then …')"),
+  givenCondition: z
+    .string()
+    .min(1, "givenCondition is required")
+    .describe("Given precondition (BDD: 'Given …')"),
+  whenAction: z
+    .string()
+    .min(1, "whenAction is required")
+    .describe("Action being tested (BDD: 'When …')"),
+  thenOutcome: z
+    .string()
+    .min(1, "thenOutcome is required")
+    .describe("Expected result (BDD: 'Then …')"),
   description: z.string().optional().describe("Optional human-readable description"),
-  scenarioCategory: z.enum(["happy_path", "error_scenario", "edge_case"]).optional().default("happy_path"),
+  scenarioCategory: z
+    .enum(["happy_path", "error_scenario", "edge_case"])
+    .optional()
+    .default("happy_path"),
   status: CriterionStatusEnum.optional().default("draft"),
 });
 
@@ -129,9 +152,7 @@ const CreateCriterionSchema = z.object({
 const KanbanEntityTypeEnum = z.enum(["feature", "story", "criterion"]);
 
 const UpdateKanbanStatusSchema = z.object({
-  entityType: KanbanEntityTypeEnum.describe(
-    "Type of entity: 'feature', 'story', or 'criterion'"
-  ),
+  entityType: KanbanEntityTypeEnum.describe("Type of entity: 'feature', 'story', or 'criterion'"),
   entityId: z.string().min(1, "entityId is required"),
   newStatus: z.string().min(1, "newStatus is required"),
   notes: z.string().optional().describe("Optional notes about this status change"),
@@ -150,19 +171,32 @@ const GetProjectContextSchema = ProjectIdSchema.extend({
 });
 
 const ScanCodebaseSchema = z.object({
-  localPath: z.string().min(1, "localPath is required").describe("Absolute path to the local codebase directory"),
+  localPath: z
+    .string()
+    .min(1, "localPath is required")
+    .describe("Absolute path to the local codebase directory"),
   depth: z.number().int().min(1).max(8).default(4).describe("Max directory traversal depth"),
 });
 
 const AnalyzeCodebaseSchema = z.object({
   projectId: z.string().min(1, "projectId is required"),
-  localPath: z.string().min(1, "localPath is required").describe("Absolute path to the local codebase directory"),
+  localPath: z
+    .string()
+    .min(1, "localPath is required")
+    .describe("Absolute path to the local codebase directory"),
   depth: z.number().int().min(1).max(8).default(4),
-  taskTitle: z.string().optional().default("Reverse Engineer Codebase").describe("Title for the generation task"),
+  taskTitle: z
+    .string()
+    .optional()
+    .default("Reverse Engineer Codebase")
+    .describe("Title for the generation task"),
 });
 
 const GetGenerationStatusSchema = z.object({
-  sessionId: z.string().min(1, "sessionId is required").describe("Session ID returned by vibemap_analyze_codebase"),
+  sessionId: z
+    .string()
+    .min(1, "sessionId is required")
+    .describe("Session ID returned by vibemap_analyze_codebase"),
 });
 
 // ─── Kanban transition validation ─────────────────────────────────────────────
@@ -314,7 +348,11 @@ export async function handleListTools() {
             name: { type: "string" },
             description: { type: "string" },
             priority: { type: "string", enum: ["high", "medium", "low"], default: "medium" },
-            category: { type: "string", enum: ["core", "enhancement", "infrastructure"], default: "core" },
+            category: {
+              type: "string",
+              enum: ["core", "enhancement", "infrastructure"],
+              default: "core",
+            },
             complexity: { type: "string", enum: ["low", "medium", "high"], default: "medium" },
             effort: { type: "string", enum: ["xs", "s", "m", "l", "xl"], default: "m" },
             business_value: { type: "string", enum: ["low", "medium", "high"], default: "medium" },
@@ -324,8 +362,7 @@ export async function handleListTools() {
       },
       {
         name: "vibemap_update_feature",
-        description:
-          "Update an existing feature's fields or status in VibeMap.",
+        description: "Update an existing feature's fields or status in VibeMap.",
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
         inputSchema: {
           type: "object",
@@ -353,9 +390,15 @@ export async function handleListTools() {
         inputSchema: {
           type: "object",
           properties: {
-            projectId: { type: "string", description: "Filter by project (use featureId for more specific results)" },
+            projectId: {
+              type: "string",
+              description: "Filter by project (use featureId for more specific results)",
+            },
             featureId: { type: "string", description: "Filter by specific feature" },
-            status: { type: "string", enum: ["draft", "has_criteria", "open", "in_progress", "completed"] },
+            status: {
+              type: "string",
+              enum: ["draft", "has_criteria", "open", "in_progress", "completed"],
+            },
             priority: { type: "string", enum: ["high", "medium", "low"] },
             search: { type: "string" },
             limit: { type: "number", default: 50 },
@@ -385,8 +428,7 @@ export async function handleListTools() {
       },
       {
         name: "vibemap_update_user_story",
-        description:
-          "Update an existing user story's fields or status in VibeMap.",
+        description: "Update an existing user story's fields or status in VibeMap.",
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
         inputSchema: {
           type: "object",
@@ -395,7 +437,10 @@ export async function handleListTools() {
             title: { type: "string" },
             description: { type: "string" },
             priority: { type: "string", enum: ["high", "medium", "low"] },
-            status: { type: "string", enum: ["draft", "has_criteria", "open", "in_progress", "completed"] },
+            status: {
+              type: "string",
+              enum: ["draft", "has_criteria", "open", "in_progress", "completed"],
+            },
             estimatedEffort: { type: "number" },
             userRole: { type: "string" },
             iWantTo: { type: "string" },
@@ -431,7 +476,10 @@ export async function handleListTools() {
         inputSchema: {
           type: "object",
           properties: {
-            storyId: { type: "string", description: "ID of the user story this criterion belongs to" },
+            storyId: {
+              type: "string",
+              description: "ID of the user story this criterion belongs to",
+            },
             givenCondition: { type: "string", description: "Precondition / context ('Given …')" },
             whenAction: { type: "string", description: "Action performed ('When …')" },
             thenOutcome: { type: "string", description: "Expected result ('Then …')" },
@@ -464,7 +512,10 @@ export async function handleListTools() {
             whenAction: { type: "string" },
             thenOutcome: { type: "string" },
             description: { type: "string" },
-            scenarioCategory: { type: "string", enum: ["happy_path", "error_scenario", "edge_case"] },
+            scenarioCategory: {
+              type: "string",
+              enum: ["happy_path", "error_scenario", "edge_case"],
+            },
           },
           required: ["criterionId"],
         },
@@ -486,7 +537,10 @@ export async function handleListTools() {
             },
             entityId: { type: "string", description: "ID of the feature, story, or criterion" },
             newStatus: { type: "string", description: "Target kanban status" },
-            notes: { type: "string", description: "Optional context about why this transition was made" },
+            notes: {
+              type: "string",
+              description: "Optional context about why this transition was made",
+            },
           },
           required: ["entityType", "entityId", "newStatus"],
         },
@@ -500,7 +554,11 @@ export async function handleListTools() {
           type: "object",
           properties: {
             projectId: { type: "string" },
-            includeCriteria: { type: "boolean", default: false, description: "Include acceptance criteria counts per story" },
+            includeCriteria: {
+              type: "boolean",
+              default: false,
+              description: "Include acceptance criteria counts per story",
+            },
           },
           required: ["projectId"],
         },
@@ -515,7 +573,10 @@ export async function handleListTools() {
         inputSchema: {
           type: "object",
           properties: {
-            localPath: { type: "string", description: "Absolute path to the local project directory" },
+            localPath: {
+              type: "string",
+              description: "Absolute path to the local project directory",
+            },
             depth: { type: "number", default: 4, description: "Max directory depth to traverse" },
           },
           required: ["localPath"],
@@ -529,8 +590,14 @@ export async function handleListTools() {
         inputSchema: {
           type: "object",
           properties: {
-            projectId: { type: "string", description: "The VibeMap project to populate with discovered specs" },
-            localPath: { type: "string", description: "Absolute path to the local project directory" },
+            projectId: {
+              type: "string",
+              description: "The VibeMap project to populate with discovered specs",
+            },
+            localPath: {
+              type: "string",
+              description: "Absolute path to the local project directory",
+            },
             depth: { type: "number", default: 4 },
             taskTitle: { type: "string", default: "Reverse Engineer Codebase" },
           },
@@ -582,9 +649,15 @@ export async function handleCallTool(request: CallToolRequest) {
         // Build streamlined project object
         const projectFieldsToRemove = [
           ...GLOBAL_STRIP,
-          "project_type", "business_context", "technical_context",
-          "assumptions", "risks", "goals", "future_considerations",
-          "app_architecture_prefs", "analysis",
+          "project_type",
+          "business_context",
+          "technical_context",
+          "assumptions",
+          "risks",
+          "goals",
+          "future_considerations",
+          "app_architecture_prefs",
+          "analysis",
         ];
         const cleanProject = stripFields(project, projectFieldsToRemove) as Record<string, unknown>;
 
@@ -597,7 +670,12 @@ export async function handleCallTool(request: CallToolRequest) {
 
         // Strip budget/timeline from constraints
         if (cleanProject.constraints && typeof cleanProject.constraints === "object") {
-          const { budget: _b, timeline: _t, regulatory: _r, ...rest } = cleanProject.constraints as Record<string, unknown>;
+          const {
+            budget: _b,
+            timeline: _t,
+            regulatory: _r,
+            ...rest
+          } = cleanProject.constraints as Record<string, unknown>;
           cleanProject.constraints = rest;
         }
 
@@ -615,7 +693,10 @@ export async function handleCallTool(request: CallToolRequest) {
         if (parsed.includeStories) {
           let stories = (analysis.user_stories as unknown[]) || [];
           if (stories.length === 0) {
-            const result = await client.listUserStories({ project_id: parsed.projectId, limit: 100 });
+            const result = await client.listUserStories({
+              project_id: parsed.projectId,
+              limit: 100,
+            });
             stories = (result as { user_stories: unknown[] }).user_stories || [];
           }
           response.stories = stripFields(stories, [...GLOBAL_STRIP, "persona_id", "features"]);
@@ -624,18 +705,29 @@ export async function handleCallTool(request: CallToolRequest) {
         if (parsed.includePersonas) {
           const personas = (analysis.personas as unknown[]) || [];
           response.personas = (personas as Record<string, unknown>[]).map((p) => ({
-            id: p.id, name: p.name, user_role: p.user_role, tagline: p.tagline, avatar_description: p.avatar_description,
+            id: p.id,
+            name: p.name,
+            user_role: p.user_role,
+            tagline: p.tagline,
+            avatar_description: p.avatar_description,
           }));
         }
 
         if (parsed.includePages) {
           const pages = (analysis.pages as unknown[]) || [];
           response.pages = (pages as Record<string, unknown>[]).map((p) => ({
-            id: p.id, name: p.name, description: p.description, path: p.path, prompt: p.prompt,
+            id: p.id,
+            name: p.name,
+            description: p.description,
+            path: p.path,
+            prompt: p.prompt,
           }));
           const sections = (analysis.sections as unknown[]) || [];
           response.sections = (sections as Record<string, unknown>[]).map((s) => ({
-            id: s.id, page_id: s.page_id, name: s.name, description: s.description,
+            id: s.id,
+            page_id: s.page_id,
+            name: s.name,
+            description: s.description,
           }));
         }
 
@@ -696,7 +788,10 @@ export async function handleCallTool(request: CallToolRequest) {
         // Manual parse here since zod refine can't capture partial optional pattern well
         const raw = (args || {}) as Record<string, unknown>;
         if (!raw.projectId && !raw.featureId) {
-          throw new McpError(ErrorCode.InvalidParams, "Either projectId or featureId must be provided");
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            "Either projectId or featureId must be provided"
+          );
         }
         const client = getVibeClient();
         const result = await client.listUserStories({
@@ -753,7 +848,10 @@ export async function handleCallTool(request: CallToolRequest) {
       case "vibemap_list_acceptance_criteria": {
         const raw = (args || {}) as Record<string, unknown>;
         if (!raw.storyId && !raw.featureId && !raw.projectId) {
-          throw new McpError(ErrorCode.InvalidParams, "At least one of storyId, featureId, or projectId must be provided");
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            "At least one of storyId, featureId, or projectId must be provided"
+          );
         }
         const client = getVibeClient();
         const result = await client.listAcceptanceCriteria({
@@ -810,10 +908,10 @@ export async function handleCallTool(request: CallToolRequest) {
         // Fetch current status
         let currentStatus: string;
         if (entityType === "feature") {
-          const feature = await client.getFeature(entityId) as Record<string, unknown>;
+          const feature = (await client.getFeature(entityId)) as Record<string, unknown>;
           currentStatus = feature.status as string;
         } else if (entityType === "story") {
-          const story = await client.getUserStory(entityId) as Record<string, unknown>;
+          const story = (await client.getUserStory(entityId)) as Record<string, unknown>;
           currentStatus = story.status as string;
         } else {
           // criterion — fetch by ID
@@ -841,23 +939,31 @@ export async function handleCallTool(request: CallToolRequest) {
         } else if (entityType === "story") {
           updated = await client.updateUserStory(entityId, { status: newStatus as StoryStatus });
         } else {
-          updated = await client.updateAcceptanceCriterion(entityId, { status: newStatus as CriterionStatus });
+          updated = await client.updateAcceptanceCriterion(entityId, {
+            status: newStatus as CriterionStatus,
+          });
         }
 
         const noteStr = notes ? ` Note: ${notes}` : "";
         return {
-          content: [{
-            type: "text",
-            text: JSON.stringify({
-              success: true,
-              entityType,
-              entityId,
-              previousStatus: currentStatus,
-              newStatus,
-              notes: noteStr || undefined,
-              updated: stripFields(updated, GLOBAL_STRIP),
-            }, null, 2),
-          }],
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  success: true,
+                  entityType,
+                  entityId,
+                  previousStatus: currentStatus,
+                  newStatus,
+                  notes: noteStr || undefined,
+                  updated: stripFields(updated, GLOBAL_STRIP),
+                },
+                null,
+                2
+              ),
+            },
+          ],
         };
       }
 
@@ -872,7 +978,8 @@ export async function handleCallTool(request: CallToolRequest) {
         ]);
 
         const features = (featuresResult as { features: Record<string, unknown>[] }).features || [];
-        const stories = (storiesResult as { user_stories: Record<string, unknown>[] }).user_stories || [];
+        const stories =
+          (storiesResult as { user_stories: Record<string, unknown>[] }).user_stories || [];
 
         // Build feature → stories map
         const storyByFeature = new Map<string, Record<string, unknown>[]>();
@@ -896,7 +1003,11 @@ export async function handleCallTool(request: CallToolRequest) {
 
           // Group stories by status for this feature
           const storyBoard: Record<string, unknown[]> = {
-            draft: [], has_criteria: [], open: [], in_progress: [], completed: [],
+            draft: [],
+            has_criteria: [],
+            open: [],
+            in_progress: [],
+            completed: [],
           };
           for (const s of featureStories) {
             const ss = (s.status as string) || "draft";
@@ -904,7 +1015,7 @@ export async function handleCallTool(request: CallToolRequest) {
           }
 
           const entry = {
-            ...stripFields(feature, [...GLOBAL_STRIP, "projects"]) as object,
+            ...(stripFields(feature, [...GLOBAL_STRIP, "projects"]) as object),
             _stories: storyBoard,
             _storyCount: featureStories.length,
             _completedStories: featureStories.filter((s) => s.status === "completed").length,
@@ -933,10 +1044,12 @@ export async function handleCallTool(request: CallToolRequest) {
         const parsed = ScanCodebaseSchema.parse(args);
         const tree = await walkDir(parsed.localPath, parsed.depth);
         return {
-          content: [{
-            type: "text",
-            text: `Directory tree for: ${parsed.localPath}\n\n${tree}`,
-          }],
+          content: [
+            {
+              type: "text",
+              text: `Directory tree for: ${parsed.localPath}\n\n${tree}`,
+            },
+          ],
         };
       }
 
@@ -990,18 +1103,25 @@ Based on the above, please:
         });
 
         return {
-          content: [{
-            type: "text",
-            text: JSON.stringify({
-              success: true,
-              message: "Codebase submitted to VibeMap for AI analysis. Poll vibemap_get_generation_status with the sessionId.",
-              sessionId: task.sessionId,
-              projectId: parsed.projectId,
-              localPath: parsed.localPath,
-              filesAnalyzed: digest.stats.totalFiles,
-              keyFilesIncluded: digest.keyFiles.length,
-            }, null, 2),
-          }],
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  success: true,
+                  message:
+                    "Codebase submitted to VibeMap for AI analysis. Poll vibemap_get_generation_status with the sessionId.",
+                  sessionId: task.sessionId,
+                  projectId: parsed.projectId,
+                  localPath: parsed.localPath,
+                  filesAnalyzed: digest.stats.totalFiles,
+                  keyFilesIncluded: digest.keyFiles.length,
+                },
+                null,
+                2
+              ),
+            },
+          ],
         };
       }
 

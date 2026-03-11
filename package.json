@@ -13,18 +13,8 @@
   "publishConfig": {
     "access": "public"
   },
-  "files": [
-    "build/**/*",
-    "README.md"
-  ],
-  "keywords": [
-    "mcp",
-    "model-context-protocol",
-    "vibemap",
-    "ai",
-    "agent",
-    "ide"
-  ],
+  "files": ["build/**/*", "README.md"],
+  "keywords": ["mcp", "model-context-protocol", "vibemap", "ai", "agent", "ide"],
   "author": "VibeMap",
   "license": "MIT",
   "repository": {

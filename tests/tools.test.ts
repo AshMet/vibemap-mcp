@@ -169,16 +169,20 @@ describe("MCP Tools", () => {
         },
       };
       stableMockClient.getProject.mockResolvedValue(mockProject);
-      stableMockClient.listUserStories.mockResolvedValue({ user_stories: [{ id: "s1", title: "Login" }] });
+      stableMockClient.listUserStories.mockResolvedValue({
+        user_stories: [{ id: "s1", title: "Login" }],
+      });
 
-      const result = await handleCallTool(makeRequest("vibemap_get_project_context", {
-        projectId: "proj-1",
-        includeFeatures: true,
-        includeStories: true,
-        includePersonas: true,
-        includePages: true,
-        includeSchema: true,
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_get_project_context", {
+          projectId: "proj-1",
+          includeFeatures: true,
+          includeStories: true,
+          includePersonas: true,
+          includePages: true,
+          includeSchema: true,
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.project.id).toBe("proj-1");
@@ -205,7 +209,9 @@ describe("MCP Tools", () => {
       stableMockClient.listUserStories.mockResolvedValue({ user_stories: [] });
       stableMockClient.listFeatures.mockResolvedValue({ features: [] });
 
-      const result = await handleCallTool(makeRequest("vibemap_get_project_context", { projectId: "proj-1" }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_get_project_context", { projectId: "proj-1" })
+      );
       const data = JSON.parse(result.content[0].text);
       const p = data.project;
 
@@ -219,9 +225,9 @@ describe("MCP Tools", () => {
     });
 
     it("throws McpError with absent projectId", async () => {
-      await expect(
-        handleCallTool(makeRequest("vibemap_get_project_context", {}))
-      ).rejects.toThrow(McpError);
+      await expect(handleCallTool(makeRequest("vibemap_get_project_context", {}))).rejects.toThrow(
+        McpError
+      );
     });
   });
 
@@ -233,7 +239,9 @@ describe("MCP Tools", () => {
         meta: { total: 1 },
       });
 
-      const result = await handleCallTool(makeRequest("vibemap_list_features", { projectId: "proj-1" }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_list_features", { projectId: "proj-1" })
+      );
       const data = JSON.parse(result.content[0].text);
       expect(data.features).toHaveLength(1);
       expect(data.features[0].name).toBe("Auth");
@@ -242,11 +250,13 @@ describe("MCP Tools", () => {
     it("passes filter options to client", async () => {
       stableMockClient.listFeatures.mockResolvedValue({ features: [], meta: {} });
 
-      await handleCallTool(makeRequest("vibemap_list_features", {
-        projectId: "proj-1",
-        status: "in_progress",
-        priority: "high",
-      }));
+      await handleCallTool(
+        makeRequest("vibemap_list_features", {
+          projectId: "proj-1",
+          status: "in_progress",
+          priority: "high",
+        })
+      );
 
       expect(stableMockClient.listFeatures).toHaveBeenCalledWith(
         expect.objectContaining({ status: "in_progress", priority: "high" })
@@ -254,9 +264,9 @@ describe("MCP Tools", () => {
     });
 
     it("throws on missing projectId", async () => {
-      await expect(
-        handleCallTool(makeRequest("vibemap_list_features", {}))
-      ).rejects.toThrow(McpError);
+      await expect(handleCallTool(makeRequest("vibemap_list_features", {}))).rejects.toThrow(
+        McpError
+      );
     });
   });
 
@@ -265,11 +275,13 @@ describe("MCP Tools", () => {
     it("creates a feature", async () => {
       stableMockClient.createFeature.mockResolvedValue({ id: "f-new", name: "Payments" });
 
-      const result = await handleCallTool(makeRequest("vibemap_create_feature", {
-        projectId: "proj-1",
-        name: "Payments",
-        description: "Payment processing",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_create_feature", {
+          projectId: "proj-1",
+          name: "Payments",
+          description: "Payment processing",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.id).toBe("f-new");
@@ -299,11 +311,13 @@ describe("MCP Tools", () => {
         status: "open",
       });
 
-      const result = await handleCallTool(makeRequest("vibemap_update_feature", {
-        featureId: "f1",
-        name: "Updated Auth",
-        priority: "high",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_update_feature", {
+          featureId: "f1",
+          name: "Updated Auth",
+          priority: "high",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.id).toBe("f1");
@@ -317,10 +331,12 @@ describe("MCP Tools", () => {
     it("updates a feature's status", async () => {
       stableMockClient.updateFeature.mockResolvedValue({ id: "f1", status: "completed" });
 
-      const result = await handleCallTool(makeRequest("vibemap_update_feature", {
-        featureId: "f1",
-        status: "completed",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_update_feature", {
+          featureId: "f1",
+          status: "completed",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.status).toBe("completed");
@@ -341,9 +357,11 @@ describe("MCP Tools", () => {
         meta: { total: 1 },
       });
 
-      const result = await handleCallTool(makeRequest("vibemap_list_user_stories", {
-        featureId: "f1",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_list_user_stories", {
+          featureId: "f1",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.user_stories).toHaveLength(1);
@@ -351,22 +369,27 @@ describe("MCP Tools", () => {
 
     it("lists stories filtered by project", async () => {
       stableMockClient.listUserStories.mockResolvedValue({
-        user_stories: [{ id: "s1", title: "Login" }, { id: "s2", title: "Signup" }],
+        user_stories: [
+          { id: "s1", title: "Login" },
+          { id: "s2", title: "Signup" },
+        ],
         meta: { total: 2 },
       });
 
-      const result = await handleCallTool(makeRequest("vibemap_list_user_stories", {
-        projectId: "proj-1",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_list_user_stories", {
+          projectId: "proj-1",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.user_stories).toHaveLength(2);
     });
 
     it("throws when neither projectId nor featureId is provided", async () => {
-      await expect(
-        handleCallTool(makeRequest("vibemap_list_user_stories", {}))
-      ).rejects.toThrow(McpError);
+      await expect(handleCallTool(makeRequest("vibemap_list_user_stories", {}))).rejects.toThrow(
+        McpError
+      );
     });
   });
 
@@ -380,14 +403,16 @@ describe("MCP Tools", () => {
         status: "draft",
       });
 
-      const result = await handleCallTool(makeRequest("vibemap_create_user_story", {
-        featureId: "f1",
-        title: "User can log in",
-        description: "As a user I want to log in",
-        userRole: "user",
-        iWantTo: "authenticate with my email and password",
-        soThat: "I can access my account",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_create_user_story", {
+          featureId: "f1",
+          title: "User can log in",
+          description: "As a user I want to log in",
+          userRole: "user",
+          iWantTo: "authenticate with my email and password",
+          soThat: "I can access my account",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.id).toBe("s-new");
@@ -399,19 +424,23 @@ describe("MCP Tools", () => {
 
     it("throws on missing featureId", async () => {
       await expect(
-        handleCallTool(makeRequest("vibemap_create_user_story", {
-          title: "Login",
-          description: "login desc",
-        }))
+        handleCallTool(
+          makeRequest("vibemap_create_user_story", {
+            title: "Login",
+            description: "login desc",
+          })
+        )
       ).rejects.toThrow(McpError);
     });
 
     it("throws on missing title", async () => {
       await expect(
-        handleCallTool(makeRequest("vibemap_create_user_story", {
-          featureId: "f1",
-          description: "login desc",
-        }))
+        handleCallTool(
+          makeRequest("vibemap_create_user_story", {
+            featureId: "f1",
+            description: "login desc",
+          })
+        )
       ).rejects.toThrow(McpError);
     });
   });
@@ -424,10 +453,12 @@ describe("MCP Tools", () => {
         title: "Updated title",
       });
 
-      const result = await handleCallTool(makeRequest("vibemap_update_user_story", {
-        storyId: "s1",
-        title: "Updated title",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_update_user_story", {
+          storyId: "s1",
+          title: "Updated title",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.title).toBe("Updated title");
@@ -440,10 +471,12 @@ describe("MCP Tools", () => {
     it("updates a story's status", async () => {
       stableMockClient.updateUserStory.mockResolvedValue({ id: "s1", status: "in_progress" });
 
-      const result = await handleCallTool(makeRequest("vibemap_update_user_story", {
-        storyId: "s1",
-        status: "in_progress",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_update_user_story", {
+          storyId: "s1",
+          status: "in_progress",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.status).toBe("in_progress");
@@ -460,15 +493,15 @@ describe("MCP Tools", () => {
   describe("vibemap_list_acceptance_criteria", () => {
     it("lists criteria by story", async () => {
       stableMockClient.listAcceptanceCriteria.mockResolvedValue({
-        acceptance_criteria: [
-          { id: "ac1", given_condition: "I am logged in", status: "pending" },
-        ],
+        acceptance_criteria: [{ id: "ac1", given_condition: "I am logged in", status: "pending" }],
         meta: {},
       });
 
-      const result = await handleCallTool(makeRequest("vibemap_list_acceptance_criteria", {
-        storyId: "s1",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_list_acceptance_criteria", {
+          storyId: "s1",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.acceptance_criteria).toHaveLength(1);
@@ -481,9 +514,11 @@ describe("MCP Tools", () => {
         meta: {},
       });
 
-      const result = await handleCallTool(makeRequest("vibemap_list_acceptance_criteria", {
-        featureId: "f1",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_list_acceptance_criteria", {
+          featureId: "f1",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.acceptance_criteria).toHaveLength(2);
@@ -504,10 +539,12 @@ describe("MCP Tools", () => {
         status: "passed",
       });
 
-      const result = await handleCallTool(makeRequest("vibemap_update_acceptance_criterion", {
-        criterionId: "ac1",
-        status: "passed",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_update_acceptance_criterion", {
+          criterionId: "ac1",
+          status: "passed",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.status).toBe("passed");
@@ -523,10 +560,12 @@ describe("MCP Tools", () => {
         status: "failed",
       });
 
-      const result = await handleCallTool(makeRequest("vibemap_update_acceptance_criterion", {
-        criterionId: "ac1",
-        status: "failed",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_update_acceptance_criterion", {
+          criterionId: "ac1",
+          status: "failed",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.status).toBe("failed");
@@ -535,12 +574,14 @@ describe("MCP Tools", () => {
     it("updates BDD fields", async () => {
       stableMockClient.updateAcceptanceCriterion.mockResolvedValue({ id: "ac1" });
 
-      await handleCallTool(makeRequest("vibemap_update_acceptance_criterion", {
-        criterionId: "ac1",
-        givenCondition: "I am on the login page",
-        whenAction: "I submit valid credentials",
-        thenOutcome: "I am redirected to the dashboard",
-      }));
+      await handleCallTool(
+        makeRequest("vibemap_update_acceptance_criterion", {
+          criterionId: "ac1",
+          givenCondition: "I am on the login page",
+          whenAction: "I submit valid credentials",
+          thenOutcome: "I am redirected to the dashboard",
+        })
+      );
 
       expect(stableMockClient.updateAcceptanceCriterion).toHaveBeenCalledWith(
         "ac1",
@@ -565,11 +606,13 @@ describe("MCP Tools", () => {
       stableMockClient.getFeature.mockResolvedValue({ id: "f1", status: "draft" });
       stableMockClient.updateFeature.mockResolvedValue({ id: "f1", status: "open" });
 
-      const result = await handleCallTool(makeRequest("vibemap_update_kanban_status", {
-        entityType: "feature",
-        entityId: "f1",
-        newStatus: "open",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_update_kanban_status", {
+          entityType: "feature",
+          entityId: "f1",
+          newStatus: "open",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.success).toBe(true);
@@ -581,11 +624,13 @@ describe("MCP Tools", () => {
       stableMockClient.getFeature.mockResolvedValue({ id: "f1", status: "open" });
       stableMockClient.updateFeature.mockResolvedValue({ id: "f1", status: "in_progress" });
 
-      const result = await handleCallTool(makeRequest("vibemap_update_kanban_status", {
-        entityType: "feature",
-        entityId: "f1",
-        newStatus: "in_progress",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_update_kanban_status", {
+          entityType: "feature",
+          entityId: "f1",
+          newStatus: "in_progress",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.success).toBe(true);
@@ -596,12 +641,14 @@ describe("MCP Tools", () => {
       stableMockClient.getFeature.mockResolvedValue({ id: "f1", status: "in_progress" });
       stableMockClient.updateFeature.mockResolvedValue({ id: "f1", status: "open" });
 
-      const result = await handleCallTool(makeRequest("vibemap_update_kanban_status", {
-        entityType: "feature",
-        entityId: "f1",
-        newStatus: "open",
-        notes: "Reopening — needs more work",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_update_kanban_status", {
+          entityType: "feature",
+          entityId: "f1",
+          newStatus: "open",
+          notes: "Reopening — needs more work",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.success).toBe(true);
@@ -612,11 +659,13 @@ describe("MCP Tools", () => {
       stableMockClient.getFeature.mockResolvedValue({ id: "f1", status: "in_progress" });
       stableMockClient.updateFeature.mockResolvedValue({ id: "f1", status: "completed" });
 
-      const result = await handleCallTool(makeRequest("vibemap_update_kanban_status", {
-        entityType: "feature",
-        entityId: "f1",
-        newStatus: "completed",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_update_kanban_status", {
+          entityType: "feature",
+          entityId: "f1",
+          newStatus: "completed",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.success).toBe(true);
@@ -625,11 +674,13 @@ describe("MCP Tools", () => {
     it("returns error for invalid transition (draft → completed)", async () => {
       stableMockClient.getFeature.mockResolvedValue({ id: "f1", status: "draft" });
 
-      const result = await handleCallTool(makeRequest("vibemap_update_kanban_status", {
-        entityType: "feature",
-        entityId: "f1",
-        newStatus: "completed",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_update_kanban_status", {
+          entityType: "feature",
+          entityId: "f1",
+          newStatus: "completed",
+        })
+      );
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain("Invalid transition");
@@ -640,11 +691,13 @@ describe("MCP Tools", () => {
     it("returns error for invalid transition (draft → in_progress for feature)", async () => {
       stableMockClient.getFeature.mockResolvedValue({ id: "f1", status: "draft" });
 
-      const result = await handleCallTool(makeRequest("vibemap_update_kanban_status", {
-        entityType: "feature",
-        entityId: "f1",
-        newStatus: "in_progress",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_update_kanban_status", {
+          entityType: "feature",
+          entityId: "f1",
+          newStatus: "in_progress",
+        })
+      );
 
       expect(result.isError).toBe(true);
     });
@@ -653,11 +706,13 @@ describe("MCP Tools", () => {
       stableMockClient.getUserStory.mockResolvedValue({ id: "s1", status: "draft" });
       stableMockClient.updateUserStory.mockResolvedValue({ id: "s1", status: "has_criteria" });
 
-      const result = await handleCallTool(makeRequest("vibemap_update_kanban_status", {
-        entityType: "story",
-        entityId: "s1",
-        newStatus: "has_criteria",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_update_kanban_status", {
+          entityType: "story",
+          entityId: "s1",
+          newStatus: "has_criteria",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.success).toBe(true);
@@ -668,12 +723,14 @@ describe("MCP Tools", () => {
       stableMockClient.getUserStory.mockResolvedValue({ id: "s1", status: "open" });
       stableMockClient.updateUserStory.mockResolvedValue({ id: "s1", status: "in_progress" });
 
-      const result = await handleCallTool(makeRequest("vibemap_update_kanban_status", {
-        entityType: "story",
-        entityId: "s1",
-        newStatus: "in_progress",
-        notes: "Starting implementation",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_update_kanban_status", {
+          entityType: "story",
+          entityId: "s1",
+          newStatus: "in_progress",
+          notes: "Starting implementation",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.success).toBe(true);
@@ -683,11 +740,13 @@ describe("MCP Tools", () => {
     it("returns error for invalid story transition (draft → completed)", async () => {
       stableMockClient.getUserStory.mockResolvedValue({ id: "s1", status: "draft" });
 
-      const result = await handleCallTool(makeRequest("vibemap_update_kanban_status", {
-        entityType: "story",
-        entityId: "s1",
-        newStatus: "completed",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_update_kanban_status", {
+          entityType: "story",
+          entityId: "s1",
+          newStatus: "completed",
+        })
+      );
 
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain("Invalid transition");
@@ -697,11 +756,13 @@ describe("MCP Tools", () => {
       stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "pending" });
       stableMockClient.updateAcceptanceCriterion.mockResolvedValue({ id: "ac1", status: "passed" });
 
-      const result = await handleCallTool(makeRequest("vibemap_update_kanban_status", {
-        entityType: "criterion",
-        entityId: "ac1",
-        newStatus: "passed",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_update_kanban_status", {
+          entityType: "criterion",
+          entityId: "ac1",
+          newStatus: "passed",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.success).toBe(true);
@@ -712,11 +773,13 @@ describe("MCP Tools", () => {
       stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "pending" });
       stableMockClient.updateAcceptanceCriterion.mockResolvedValue({ id: "ac1", status: "failed" });
 
-      const result = await handleCallTool(makeRequest("vibemap_update_kanban_status", {
-        entityType: "criterion",
-        entityId: "ac1",
-        newStatus: "failed",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_update_kanban_status", {
+          entityType: "criterion",
+          entityId: "ac1",
+          newStatus: "failed",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.success).toBe(true);
@@ -725,13 +788,18 @@ describe("MCP Tools", () => {
 
     it("transitions a criterion from passed back to pending (reopen)", async () => {
       stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "passed" });
-      stableMockClient.updateAcceptanceCriterion.mockResolvedValue({ id: "ac1", status: "pending" });
+      stableMockClient.updateAcceptanceCriterion.mockResolvedValue({
+        id: "ac1",
+        status: "pending",
+      });
 
-      const result = await handleCallTool(makeRequest("vibemap_update_kanban_status", {
-        entityType: "criterion",
-        entityId: "ac1",
-        newStatus: "pending",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_update_kanban_status", {
+          entityType: "criterion",
+          entityId: "ac1",
+          newStatus: "pending",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.success).toBe(true);
@@ -740,11 +808,13 @@ describe("MCP Tools", () => {
     it("returns error for invalid criterion transition (draft → passed)", async () => {
       stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "draft" });
 
-      const result = await handleCallTool(makeRequest("vibemap_update_kanban_status", {
-        entityType: "criterion",
-        entityId: "ac1",
-        newStatus: "passed",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_update_kanban_status", {
+          entityType: "criterion",
+          entityId: "ac1",
+          newStatus: "passed",
+        })
+      );
 
       expect(result.isError).toBe(true);
     });
@@ -766,9 +836,11 @@ describe("MCP Tools", () => {
         ],
       });
 
-      const result = await handleCallTool(makeRequest("vibemap_get_kanban_board", {
-        projectId: "proj-1",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_get_kanban_board", {
+          projectId: "proj-1",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.board).toBeDefined();
@@ -780,9 +852,7 @@ describe("MCP Tools", () => {
 
     it("nested stories appear under correct feature column", async () => {
       stableMockClient.listFeatures.mockResolvedValue({
-        features: [
-          { id: "f1", name: "Auth", status: "open" },
-        ],
+        features: [{ id: "f1", name: "Auth", status: "open" }],
       });
       stableMockClient.listUserStories.mockResolvedValue({
         user_stories: [
@@ -791,9 +861,11 @@ describe("MCP Tools", () => {
         ],
       });
 
-      const result = await handleCallTool(makeRequest("vibemap_get_kanban_board", {
-        projectId: "proj-1",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_get_kanban_board", {
+          projectId: "proj-1",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       const openFeature = data.board.open[0];
@@ -804,9 +876,9 @@ describe("MCP Tools", () => {
     });
 
     it("throws on missing projectId", async () => {
-      await expect(
-        handleCallTool(makeRequest("vibemap_get_kanban_board", {}))
-      ).rejects.toThrow(McpError);
+      await expect(handleCallTool(makeRequest("vibemap_get_kanban_board", {}))).rejects.toThrow(
+        McpError
+      );
     });
   });
 
@@ -815,10 +887,12 @@ describe("MCP Tools", () => {
     it("scans the codebase and returns tree", async () => {
       vi.mocked(walkDir).mockResolvedValue("📁 src\n  index.ts\n");
 
-      const result = await handleCallTool(makeRequest("vibemap_scan_codebase", {
-        localPath: "/my/project",
-        depth: 3,
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_scan_codebase", {
+          localPath: "/my/project",
+          depth: 3,
+        })
+      );
 
       expect(result.content[0].text).toContain("📁 src");
       expect(walkDir).toHaveBeenCalledWith("/my/project", 3);
@@ -827,17 +901,19 @@ describe("MCP Tools", () => {
     it("uses default depth of 4 when not specified", async () => {
       vi.mocked(walkDir).mockResolvedValue("📁 src\n");
 
-      await handleCallTool(makeRequest("vibemap_scan_codebase", {
-        localPath: "/my/project",
-      }));
+      await handleCallTool(
+        makeRequest("vibemap_scan_codebase", {
+          localPath: "/my/project",
+        })
+      );
 
       expect(walkDir).toHaveBeenCalledWith("/my/project", 4);
     });
 
     it("throws on missing localPath", async () => {
-      await expect(
-        handleCallTool(makeRequest("vibemap_scan_codebase", {}))
-      ).rejects.toThrow(McpError);
+      await expect(handleCallTool(makeRequest("vibemap_scan_codebase", {}))).rejects.toThrow(
+        McpError
+      );
     });
   });
 
@@ -851,10 +927,12 @@ describe("MCP Tools", () => {
       });
       stableMockClient.submitTask.mockResolvedValue({ sessionId: "task-abc-123" });
 
-      const result = await handleCallTool(makeRequest("vibemap_analyze_codebase", {
-        projectId: "proj-1",
-        localPath: "/my/project",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_analyze_codebase", {
+          projectId: "proj-1",
+          localPath: "/my/project",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.success).toBe(true);
@@ -874,11 +952,13 @@ describe("MCP Tools", () => {
       });
       stableMockClient.submitTask.mockResolvedValue({ sessionId: "task-xyz" });
 
-      await handleCallTool(makeRequest("vibemap_analyze_codebase", {
-        projectId: "proj-1",
-        localPath: "/my/project",
-        taskTitle: "My Custom Analysis",
-      }));
+      await handleCallTool(
+        makeRequest("vibemap_analyze_codebase", {
+          projectId: "proj-1",
+          localPath: "/my/project",
+          taskTitle: "My Custom Analysis",
+        })
+      );
 
       expect(stableMockClient.submitTask).toHaveBeenCalledWith(
         expect.objectContaining({ title: "My Custom Analysis" })
@@ -907,9 +987,11 @@ describe("MCP Tools", () => {
         storiesCreated: 20,
       });
 
-      const result = await handleCallTool(makeRequest("vibemap_get_generation_status", {
-        sessionId: "task-abc-123",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_get_generation_status", {
+          sessionId: "task-abc-123",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.status).toBe("completed");
@@ -922,9 +1004,11 @@ describe("MCP Tools", () => {
         progress: 0.6,
       });
 
-      const result = await handleCallTool(makeRequest("vibemap_get_generation_status", {
-        sessionId: "task-running",
-      }));
+      const result = await handleCallTool(
+        makeRequest("vibemap_get_generation_status", {
+          sessionId: "task-running",
+        })
+      );
 
       const data = JSON.parse(result.content[0].text);
       expect(data.status).toBe("in_progress");
@@ -943,33 +1027,31 @@ describe("MCP Tools", () => {
       const originalKey = process.env.VIBEMAP_API_KEY;
       delete process.env.VIBEMAP_API_KEY;
 
-      await expect(
-        handleCallTool(makeRequest("vibemap_list_projects"))
-      ).rejects.toThrow("VIBEMAP_API_KEY");
+      await expect(handleCallTool(makeRequest("vibemap_list_projects"))).rejects.toThrow(
+        "VIBEMAP_API_KEY"
+      );
 
       process.env.VIBEMAP_API_KEY = originalKey;
     });
 
     it("throws McpError for unknown tool name", async () => {
-      await expect(
-        handleCallTool(makeRequest("not_a_real_tool"))
-      ).rejects.toThrow(McpError);
+      await expect(handleCallTool(makeRequest("not_a_real_tool"))).rejects.toThrow(McpError);
     });
 
     it("throws McpError with Zod validation error message on bad params", async () => {
       await expect(
-        handleCallTool(makeRequest("vibemap_create_feature", {
-          // missing required projectId and name
-        }))
+        handleCallTool(
+          makeRequest("vibemap_create_feature", {
+            // missing required projectId and name
+          })
+        )
       ).rejects.toThrow(McpError);
     });
 
     it("wraps API client errors as McpError InternalError", async () => {
       stableMockClient.listProjects.mockRejectedValue(new Error("Network timeout"));
 
-      await expect(
-        handleCallTool(makeRequest("vibemap_list_projects"))
-      ).rejects.toMatchObject({
+      await expect(handleCallTool(makeRequest("vibemap_list_projects"))).rejects.toMatchObject({
         code: ErrorCode.InternalError,
       });
     });

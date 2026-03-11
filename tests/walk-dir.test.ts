@@ -110,13 +110,9 @@ describe("buildCodebaseDigest", () => {
         { name: "package.json", isDirectory: () => false } as any,
       ])
       // src/ listing (for walkDir)
-      .mockResolvedValueOnce([
-        { name: "index.ts", isDirectory: () => false } as any,
-      ])
+      .mockResolvedValueOnce([{ name: "index.ts", isDirectory: () => false } as any])
       // src/ listing (for collectFiles)
-      .mockResolvedValueOnce([
-        { name: "index.ts", isDirectory: () => false } as any,
-      ])
+      .mockResolvedValueOnce([{ name: "index.ts", isDirectory: () => false } as any])
       // root listing (for collectFiles root)
       .mockResolvedValueOnce([
         { name: "src", isDirectory: () => true } as any,
@@ -144,7 +140,8 @@ describe("buildCodebaseDigest", () => {
   it("stats include byExtension counts", async () => {
     vi.mocked(fs.readdir)
       .mockResolvedValueOnce([]) // walkDir root
-      .mockResolvedValueOnce([  // collectFiles root
+      .mockResolvedValueOnce([
+        // collectFiles root
         { name: "app.ts", isDirectory: () => false } as any,
         { name: "style.css", isDirectory: () => false } as any,
         { name: "utils.ts", isDirectory: () => false } as any,

@@ -152,7 +152,9 @@ export class VibeMapClient {
 
       if (!response.ok) {
         const errorBody = await response.json().catch(() => ({ error: response.statusText }));
-        throw new Error((errorBody as Record<string, unknown>).error as string || `HTTP ${response.status}`);
+        throw new Error(
+          ((errorBody as Record<string, unknown>).error as string) || `HTTP ${response.status}`
+        );
       }
 
       return response.json() as Promise<T>;
@@ -179,7 +181,9 @@ export class VibeMapClient {
   }
 
   async getProject(id: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(`/api/crud/projects${this.buildQuery({ id, includeAnalysis: true })}`);
+    return this.request<Record<string, unknown>>(
+      `/api/crud/projects${this.buildQuery({ id, includeAnalysis: true })}`
+    );
   }
 
   async createProject(data: Record<string, unknown>): Promise<Record<string, unknown>> {
@@ -197,7 +201,9 @@ export class VibeMapClient {
   }
 
   async getFeature(id: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(`/api/crud/features${this.buildQuery({ id, includeRelationships: true })}`);
+    return this.request<Record<string, unknown>>(
+      `/api/crud/features${this.buildQuery({ id, includeRelationships: true })}`
+    );
   }
 
   async createFeature(data: CreateFeatureData): Promise<Record<string, unknown>> {
@@ -216,12 +222,18 @@ export class VibeMapClient {
 
   // ── User Stories ──────────────────────────────────────────────────────────
 
-  async listUserStories(opts: ListStoriesOptions): Promise<{ user_stories: unknown[]; meta: unknown }> {
-    return this.request(`/api/crud/user-stories${this.buildQuery(opts as Record<string, string | number | boolean | undefined>)}`);
+  async listUserStories(
+    opts: ListStoriesOptions
+  ): Promise<{ user_stories: unknown[]; meta: unknown }> {
+    return this.request(
+      `/api/crud/user-stories${this.buildQuery(opts as Record<string, string | number | boolean | undefined>)}`
+    );
   }
 
   async getUserStory(id: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(`/api/crud/user-stories${this.buildQuery({ id, includeRelationships: true })}`);
+    return this.request<Record<string, unknown>>(
+      `/api/crud/user-stories${this.buildQuery({ id, includeRelationships: true })}`
+    );
   }
 
   async createUserStory(data: CreateUserStoryData): Promise<Record<string, unknown>> {
@@ -240,12 +252,18 @@ export class VibeMapClient {
 
   // ── Acceptance Criteria ───────────────────────────────────────────────────
 
-  async listAcceptanceCriteria(opts: ListCriteriaOptions): Promise<{ acceptance_criteria: unknown[]; meta: unknown }> {
-    return this.request(`/api/crud/acceptance-criteria${this.buildQuery(opts as Record<string, string | number | boolean | undefined>)}`);
+  async listAcceptanceCriteria(
+    opts: ListCriteriaOptions
+  ): Promise<{ acceptance_criteria: unknown[]; meta: unknown }> {
+    return this.request(
+      `/api/crud/acceptance-criteria${this.buildQuery(opts as Record<string, string | number | boolean | undefined>)}`
+    );
   }
 
   async getCriterion(id: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(`/api/crud/acceptance-criteria${this.buildQuery({ id })}`);
+    return this.request<Record<string, unknown>>(
+      `/api/crud/acceptance-criteria${this.buildQuery({ id })}`
+    );
   }
 
   async createAcceptanceCriterion(data: CreateCriterionData): Promise<Record<string, unknown>> {
@@ -255,7 +273,10 @@ export class VibeMapClient {
     });
   }
 
-  async updateAcceptanceCriterion(id: string, data: UpdateCriterionData): Promise<Record<string, unknown>> {
+  async updateAcceptanceCriterion(
+    id: string,
+    data: UpdateCriterionData
+  ): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>("/api/crud/acceptance-criteria", {
       method: "PUT",
       body: JSON.stringify({ id, ...data }),

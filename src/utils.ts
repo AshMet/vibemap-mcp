@@ -3,27 +3,62 @@ import * as path from "path";
 
 // Directories and files to always ignore
 const IGNORE_DIRS = new Set([
-  "node_modules", ".git", ".next", ".turbo", "dist", "build", ".cache",
-  "__pycache__", ".venv", "venv", ".env",
+  "node_modules",
+  ".git",
+  ".next",
+  ".turbo",
+  "dist",
+  "build",
+  ".cache",
+  "__pycache__",
+  ".venv",
+  "venv",
+  ".env",
 ]);
 
-const IGNORE_EXTENSIONS = new Set([
-  ".lock", ".log", ".map", ".min.js", ".min.css",
-]);
+const IGNORE_EXTENSIONS = new Set([".lock", ".log", ".map", ".min.js", ".min.css"]);
 
 // Extensions whose contents are worth reading for code analysis
 const CODE_EXTENSIONS = new Set([
-  ".ts", ".tsx", ".js", ".jsx", ".py", ".go", ".rs", ".java",
-  ".kt", ".swift", ".rb", ".php", ".cs", ".cpp", ".c", ".h",
-  ".json", ".yaml", ".yml", ".toml", ".env.example", ".md",
-  ".sql", ".prisma", ".graphql",
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".py",
+  ".go",
+  ".rs",
+  ".java",
+  ".kt",
+  ".swift",
+  ".rb",
+  ".php",
+  ".cs",
+  ".cpp",
+  ".c",
+  ".h",
+  ".json",
+  ".yaml",
+  ".yml",
+  ".toml",
+  ".env.example",
+  ".md",
+  ".sql",
+  ".prisma",
+  ".graphql",
 ]);
 
 // Key filenames to always attempt to read (regardless of extension match)
 const KEY_FILENAMES = new Set([
-  "package.json", "pyproject.toml", "Cargo.toml", "go.mod",
-  "README.md", "README.txt", "schema.prisma", "docker-compose.yml",
-  "Dockerfile", ".env.example",
+  "package.json",
+  "pyproject.toml",
+  "Cargo.toml",
+  "go.mod",
+  "README.md",
+  "README.txt",
+  "schema.prisma",
+  "docker-compose.yml",
+  "Dockerfile",
+  ".env.example",
 ]);
 
 const MAX_FILE_READ_BYTES = 4000; // ~1k tokens per file
@@ -40,11 +75,7 @@ export interface FileEntry {
  * Walk a directory and return a formatted tree string.
  * Ignores common non-essential directories.
  */
-export async function walkDir(
-  dir: string,
-  maxDepth: number,
-  currentDepth = 0,
-): Promise<string> {
+export async function walkDir(dir: string, maxDepth: number, currentDepth = 0): Promise<string> {
   if (currentDepth >= maxDepth) return "";
 
   let result = "";
@@ -87,7 +118,7 @@ async function collectFiles(
   dir: string,
   maxDepth: number,
   currentDepth = 0,
-  collected: FileEntry[] = [],
+  collected: FileEntry[] = []
 ): Promise<FileEntry[]> {
   if (currentDepth >= maxDepth) return collected;
 
@@ -157,7 +188,8 @@ function scoreFile(entry: FileEntry): number {
   if (KEY_FILENAMES.has(name)) return 100;
 
   // Entrypoints
-  if (["index.ts", "index.js", "main.ts", "main.py", "app.ts", "server.ts"].includes(name)) return 90;
+  if (["index.ts", "index.js", "main.ts", "main.py", "app.ts", "server.ts"].includes(name))
+    return 90;
 
   // Schema / config
   if ([".prisma", ".graphql", ".sql"].includes(ext)) return 80;
@@ -215,7 +247,11 @@ export async function buildCodebaseDigest(rootDir: string, maxDepth = 4): Promis
 
   // Pick the most important files to sample
   const codeFiles = allFiles
-    .filter((e) => e.type === "file" && (CODE_EXTENSIONS.has(e.ext ?? "") || KEY_FILENAMES.has(path.basename(e.path))))
+    .filter(
+      (e) =>
+        e.type === "file" &&
+        (CODE_EXTENSIONS.has(e.ext ?? "") || KEY_FILENAMES.has(path.basename(e.path)))
+    )
     .sort((a, b) => scoreFile(b) - scoreFile(a))
     .slice(0, MAX_DIGEST_FILES);
 
