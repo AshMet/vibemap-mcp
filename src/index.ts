@@ -24,9 +24,22 @@ const ProjectIdSchema = z.object({
   projectId: z.string().min(1, "projectId is required"),
 });
 
-const FeatureStatusEnum = z.enum(["draft", "open", "in_progress", "completed"]);
-const StoryStatusEnum = z.enum(["draft", "has_criteria", "open", "in_progress", "completed"]);
-const CriterionStatusEnum = z.enum(["draft", "pending", "passed", "failed"]);
+// Single source of truth for status enums — types in vibe-client.ts mirror these
+const FEATURE_STATUSES = ["draft", "open", "in_progress", "completed"] as const;
+const STORY_STATUSES = ["draft", "has_criteria", "open", "in_progress", "completed"] as const;
+const CRITERION_STATUSES = ["draft", "pending", "passed", "failed"] as const;
+
+const FeatureStatusEnum = z.enum(FEATURE_STATUSES);
+const StoryStatusEnum = z.enum(STORY_STATUSES);
+const CriterionStatusEnum = z.enum(CRITERION_STATUSES);
+
+const CreateProjectSchema = z.object({
+  name: z.string().min(3, "Project name must be at least 3 characters").max(100),
+  description: z
+    .string()
+    .min(50, "Description should be at least 50 characters for good AI analysis")
+    .max(20000),
+});
 
 const ListFeaturesSchema = ProjectIdSchema.extend({
   status: FeatureStatusEnum.optional().describe("Filter by status"),
@@ -248,6 +261,43 @@ function validateKanbanTransition(
   return { valid: true };
 }
 
+/**
+ * If a status change is included in an update call, fetch current status and validate
+ * the transition. Returns an error response if invalid, or null if OK to proceed.
+ */
+async function guardStatusTransition(
+  client: VibeMapClient,
+  entityType: KanbanEntityType,
+  entityId: string,
+  newStatus: string | undefined
+): Promise<{ isError: true; content: Array<{ type: string; text: string }> } | null> {
+  if (!newStatus) return null;
+
+  let currentStatus: string;
+  if (entityType === "feature") {
+    const entity = (await client.getFeature(entityId)) as Record<string, unknown>;
+    currentStatus = entity.status as string;
+  } else if (entityType === "story") {
+    const entity = (await client.getUserStory(entityId)) as Record<string, unknown>;
+    currentStatus = entity.status as string;
+  } else {
+    const entity = await client.getCriterion(entityId);
+    currentStatus = (entity?.status as string) ?? "draft";
+  }
+
+  // Same status = no transition needed
+  if (currentStatus === newStatus) return null;
+
+  const validation = validateKanbanTransition(entityType, currentStatus, newStatus);
+  if (!validation.valid) {
+    return {
+      isError: true,
+      content: [{ type: "text", text: `Kanban transition error: ${validation.error}` }],
+    };
+  }
+  return null;
+}
+
 // ─── Field stripping for token efficiency ─────────────────────────────────────
 
 function stripFields(data: unknown, remove: string[]): unknown {
@@ -275,13 +325,22 @@ export const server = new Server(
   }
 );
 
+let _vibeClient: VibeMapClient | null = null;
+
+/** Reset the cached client (for testing only). */
+export function resetVibeClient() {
+  _vibeClient = null;
+}
+
 const getVibeClient = () => {
+  if (_vibeClient) return _vibeClient;
   const apiKey = process.env.VIBEMAP_API_KEY;
   const baseUrl = process.env.VIBEMAP_BASE_URL || "http://localhost:3000";
   if (!apiKey) {
     throw new McpError(ErrorCode.InternalError, "VIBEMAP_API_KEY environment variable is required");
   }
-  return new VibeMapClient({ baseUrl, apiKey });
+  _vibeClient = new VibeMapClient({ baseUrl, apiKey });
+  return _vibeClient;
 };
 
 // ─── Tool definitions ─────────────────────────────────────────────────────────
@@ -296,6 +355,27 @@ export async function handleListTools() {
           "List all VibeMap projects for the authenticated user. Returns project IDs, names, descriptions, and status.",
         annotations: { readOnlyHint: true, destructiveHint: false },
         inputSchema: { type: "object", properties: {} },
+      },
+      {
+        name: "vibemap_create_project",
+        description:
+          "Create a new VibeMap project. Use this when starting from an existing codebase — create the project first, then call vibemap_analyze_codebase with the returned project ID.",
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+        inputSchema: {
+          type: "object",
+          properties: {
+            name: {
+              type: "string",
+              description: "Project name (3-100 characters)",
+            },
+            description: {
+              type: "string",
+              description:
+                "Detailed project description (50+ characters). The more detail, the better the AI analysis.",
+            },
+          },
+          required: ["name", "description"],
+        },
       },
       {
         name: "vibemap_get_project_context",
@@ -625,8 +705,14 @@ export async function handleListTools() {
 
 // ─── Tool call handler ────────────────────────────────────────────────────────
 
+function log(msg: string) {
+  process.stderr.write(`[vibemap-mcp] ${msg}\n`);
+}
+
 export async function handleCallTool(request: CallToolRequest) {
   const { name, arguments: args } = request.params;
+  const start = Date.now();
+  log(`${name} called`);
 
   try {
     switch (name) {
@@ -635,6 +721,20 @@ export async function handleCallTool(request: CallToolRequest) {
         const client = getVibeClient();
         const projects = await client.listProjects();
         const clean = stripFields(projects, GLOBAL_STRIP);
+        return { content: [{ type: "text", text: JSON.stringify(clean, null, 2) }] };
+      }
+
+      // ── vibemap_create_project ────────────────────────────────────────────
+      case "vibemap_create_project": {
+        const parsed = CreateProjectSchema.parse(args);
+        const client = getVibeClient();
+        const project = await client.createProject({
+          name: parsed.name,
+          original_prompt: parsed.description,
+          current_prompt: parsed.description,
+          status: "draft",
+        });
+        const clean = stripFields(project, GLOBAL_STRIP);
         return { content: [{ type: "text", text: JSON.stringify(clean, null, 2) }] };
       }
 
@@ -778,6 +878,8 @@ export async function handleCallTool(request: CallToolRequest) {
         const parsed = UpdateFeatureSchema.parse(args);
         const { featureId, ...updateData } = parsed;
         const client = getVibeClient();
+        const guard = await guardStatusTransition(client, "feature", featureId, updateData.status);
+        if (guard) return guard;
         const result = await client.updateFeature(featureId, updateData);
         const clean = stripFields(result, GLOBAL_STRIP);
         return { content: [{ type: "text", text: JSON.stringify(clean, null, 2) }] };
@@ -785,23 +887,16 @@ export async function handleCallTool(request: CallToolRequest) {
 
       // ── vibemap_list_user_stories ──────────────────────────────────────────
       case "vibemap_list_user_stories": {
-        // Manual parse here since zod refine can't capture partial optional pattern well
-        const raw = (args || {}) as Record<string, unknown>;
-        if (!raw.projectId && !raw.featureId) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            "Either projectId or featureId must be provided"
-          );
-        }
+        const parsed = ListStoriesSchema.parse(args);
         const client = getVibeClient();
         const result = await client.listUserStories({
-          project_id: raw.projectId as string | undefined,
-          feature_id: raw.featureId as string | undefined,
-          status: raw.status as StoryStatus | undefined,
-          priority: raw.priority as "high" | "medium" | "low" | undefined,
-          search: raw.search as string | undefined,
-          limit: (raw.limit as number | undefined) ?? 50,
-          offset: (raw.offset as number | undefined) ?? 0,
+          project_id: parsed.projectId,
+          feature_id: parsed.featureId,
+          status: parsed.status,
+          priority: parsed.priority,
+          search: parsed.search,
+          limit: parsed.limit,
+          offset: parsed.offset,
         });
         const clean = stripFields(result, GLOBAL_STRIP);
         return { content: [{ type: "text", text: JSON.stringify(clean, null, 2) }] };
@@ -830,6 +925,8 @@ export async function handleCallTool(request: CallToolRequest) {
         const parsed = UpdateStorySchema.parse(args);
         const { storyId, ...rest } = parsed;
         const client = getVibeClient();
+        const guard = await guardStatusTransition(client, "story", storyId, rest.status);
+        if (guard) return guard;
         const result = await client.updateUserStory(storyId, {
           title: rest.title,
           description: rest.description,
@@ -846,21 +943,15 @@ export async function handleCallTool(request: CallToolRequest) {
 
       // ── vibemap_list_acceptance_criteria ──────────────────────────────────
       case "vibemap_list_acceptance_criteria": {
-        const raw = (args || {}) as Record<string, unknown>;
-        if (!raw.storyId && !raw.featureId && !raw.projectId) {
-          throw new McpError(
-            ErrorCode.InvalidParams,
-            "At least one of storyId, featureId, or projectId must be provided"
-          );
-        }
+        const parsed = ListCriteriaSchema.parse(args);
         const client = getVibeClient();
         const result = await client.listAcceptanceCriteria({
-          story_id: raw.storyId as string | undefined,
-          feature_id: raw.featureId as string | undefined,
-          project_id: raw.projectId as string | undefined,
-          status: raw.status as CriterionStatus | undefined,
-          limit: (raw.limit as number | undefined) ?? 50,
-          offset: (raw.offset as number | undefined) ?? 0,
+          story_id: parsed.storyId,
+          feature_id: parsed.featureId,
+          project_id: parsed.projectId,
+          status: parsed.status,
+          limit: parsed.limit,
+          offset: parsed.offset,
         });
         const clean = stripFields(result, GLOBAL_STRIP);
         return { content: [{ type: "text", text: JSON.stringify(clean, null, 2) }] };
@@ -889,6 +980,8 @@ export async function handleCallTool(request: CallToolRequest) {
         const parsed = UpdateCriterionSchema.parse(args);
         const { criterionId, givenCondition, whenAction, thenOutcome, ...rest } = parsed;
         const client = getVibeClient();
+        const guard = await guardStatusTransition(client, "criterion", criterionId, rest.status);
+        if (guard) return guard;
         const result = await client.updateAcceptanceCriterion(criterionId, {
           ...rest,
           given_condition: givenCondition,
@@ -972,14 +1065,20 @@ export async function handleCallTool(request: CallToolRequest) {
         const parsed = GetKanbanBoardSchema.parse(args);
         const client = getVibeClient();
 
+        const FEATURE_LIMIT = 200;
+        const STORY_LIMIT = 500;
+
         const [featuresResult, storiesResult] = await Promise.all([
-          client.listFeatures({ project_id: parsed.projectId, limit: 100 }),
-          client.listUserStories({ project_id: parsed.projectId, limit: 200 }),
+          client.listFeatures({ project_id: parsed.projectId, limit: FEATURE_LIMIT }),
+          client.listUserStories({ project_id: parsed.projectId, limit: STORY_LIMIT }),
         ]);
 
         const features = (featuresResult as { features: Record<string, unknown>[] }).features || [];
         const stories =
           (storiesResult as { user_stories: Record<string, unknown>[] }).user_stories || [];
+
+        const truncated =
+          features.length >= FEATURE_LIMIT || stories.length >= STORY_LIMIT;
 
         // Build feature → stories map
         const storyByFeature = new Map<string, Record<string, unknown>[]>();
@@ -1024,7 +1123,7 @@ export async function handleCallTool(request: CallToolRequest) {
           board[status]?.push(entry);
         }
 
-        const summary = {
+        const summary: Record<string, unknown> = {
           projectId: parsed.projectId,
           board,
           _totals: {
@@ -1035,6 +1134,11 @@ export async function handleCallTool(request: CallToolRequest) {
             ),
           },
         };
+
+        if (truncated) {
+          summary._warning =
+            `Results may be truncated (limits: ${FEATURE_LIMIT} features, ${STORY_LIMIT} stories). Use vibemap_list_features or vibemap_list_user_stories with pagination for full data.`;
+        }
 
         return { content: [{ type: "text", text: JSON.stringify(summary, null, 2) }] };
       }
@@ -1061,10 +1165,16 @@ export async function handleCallTool(request: CallToolRequest) {
         // Build rich digest
         const digest = await buildCodebaseDigest(parsed.localPath, parsed.depth);
 
-        // Format key files for the prompt
-        const keyFilesText = digest.keyFiles
-          .map((f) => `### ${f.path}\n\`\`\`\n${f.content}\n\`\`\``)
-          .join("\n\n");
+        // Format key files for the prompt, respecting a rough token budget
+        const MAX_PROMPT_CHARS = 80000; // ~20k tokens
+        let keyFilesText = "";
+        let charBudget = MAX_PROMPT_CHARS;
+        for (const f of digest.keyFiles) {
+          const block = `### ${f.path}\n\`\`\`\n${f.content}\n\`\`\`\n\n`;
+          if (charBudget - block.length < 0) break;
+          keyFilesText += block;
+          charBudget -= block.length;
+        }
 
         const prompt = `
 Analyze this existing codebase and generate comprehensive VibeMap product assets.
@@ -1137,6 +1247,10 @@ Based on the above, please:
         throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
     }
   } catch (error) {
+    const duration = Date.now() - start;
+    const errMsg = error instanceof Error ? error.message : String(error);
+    log(`${name} FAILED (${duration}ms): ${errMsg}`);
+
     if (error instanceof z.ZodError) {
       throw new McpError(
         ErrorCode.InvalidParams,
@@ -1146,7 +1260,7 @@ Based on the above, please:
     if (error instanceof McpError) throw error;
     throw new McpError(
       ErrorCode.InternalError,
-      `Tool '${name}' failed: ${error instanceof Error ? error.message : String(error)}`
+      `Tool '${name}' failed: ${errMsg}`
     );
   }
 }

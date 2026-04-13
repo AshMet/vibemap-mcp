@@ -1,6 +1,6 @@
 {
   "name": "@vibemap.ai/mcp-server",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "description": "VibeMap MCP Server — connect your IDE agent to VibeMap via the Model Context Protocol",
   "main": "build/index.js",
   "type": "module",
@@ -32,15 +32,15 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.3",
-    "@types/node-fetch": "^2.6.13",
     "node-fetch": "^3.3.2",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.9.3",
     "zod": "^4.3.5"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
+    "@types/node-fetch": "^2.6.13",
     "msw": "^2.1.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
     "undici": "^6.6.0",
     "vitest": "^1.2.2"
   }

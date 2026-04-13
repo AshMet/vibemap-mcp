@@ -85,20 +85,22 @@ Same format as Cursor. Add to your Windsurf MCP settings file and restart.
 
 ## Tools
 
-The server exposes **15 tools** via the `vibemap_` prefix:
+The server exposes **17 tools** via the `vibemap_` prefix:
 
 | Tool | Description |
 |---|---|
 | `vibemap_list_projects` | List all your projects |
+| `vibemap_create_project` | Create a new project (use before `analyze_codebase`) |
 | `vibemap_get_project_context` | Load full project specs into agent context |
 | `vibemap_list_features` | List features with filtering |
 | `vibemap_create_feature` | Create a new feature |
-| `vibemap_update_feature` | Update feature fields or status |
+| `vibemap_update_feature` | Update feature fields or status (validates transitions) |
 | `vibemap_list_user_stories` | List stories by project or feature |
 | `vibemap_create_user_story` | Create a user story |
-| `vibemap_update_user_story` | Update story fields or status |
+| `vibemap_update_user_story` | Update story fields or status (validates transitions) |
 | `vibemap_list_acceptance_criteria` | Fetch BDD criteria |
-| `vibemap_update_acceptance_criterion` | Mark criteria passed/failed |
+| `vibemap_create_acceptance_criterion` | Create a BDD acceptance criterion |
+| `vibemap_update_acceptance_criterion` | Update or mark criteria passed/failed (validates transitions) |
 | `vibemap_update_kanban_status` | Advance kanban status (with transition validation) |
 | `vibemap_get_kanban_board` | Get real-time board view |
 | `vibemap_scan_codebase` | Walk a local directory |

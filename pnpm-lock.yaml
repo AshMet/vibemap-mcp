@@ -11,18 +11,9 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.25.3
         version: 1.25.3(hono@4.11.7)(zod@4.3.6)
-      '@types/node-fetch':
-        specifier: ^2.6.13
-        version: 2.6.13
       node-fetch:
         specifier: ^3.3.2
         version: 3.3.2
-      ts-node:
-        specifier: ^10.9.2
-        version: 10.9.2(@types/node@20.19.30)(typescript@5.9.3)
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
       zod:
         specifier: ^4.3.5
         version: 4.3.6
@@ -30,9 +21,18 @@ importers:
       '@types/node':
         specifier: ^20.11.0
         version: 20.19.30
+      '@types/node-fetch':
+        specifier: ^2.6.13
+        version: 2.6.13
       msw:
         specifier: ^2.1.0
         version: 2.12.7(@types/node@20.19.30)(typescript@5.9.3)
+      ts-node:
+        specifier: ^10.9.2
+        version: 10.9.2(@types/node@20.19.30)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
       undici:
         specifier: ^6.6.0
         version: 6.23.0

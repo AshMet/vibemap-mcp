@@ -1,6 +1,6 @@
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { handleCallTool, handleListTools } from "../src/index";
+import { handleCallTool, handleListTools, resetVibeClient } from "../src/index";
 import { buildCodebaseDigest, walkDir } from "../src/utils";
 import { VibeMapClient } from "../src/vibe-client";
 
@@ -14,6 +14,7 @@ vi.mock("../src/vibe-client", () => {
     VibeMapClient: vi.fn().mockImplementation(() => ({
       listProjects: vi.fn(),
       getProject: vi.fn(),
+      createProject: vi.fn(),
       listFeatures: vi.fn(),
       getFeature: vi.fn(),
       createFeature: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock("../src/vibe-client", () => {
       updateUserStory: vi.fn(),
       listAcceptanceCriteria: vi.fn(),
       getCriterion: vi.fn(),
+      createAcceptanceCriterion: vi.fn(),
       updateAcceptanceCriterion: vi.fn(),
       submitTask: vi.fn(),
       getTaskStatus: vi.fn(),
@@ -43,6 +45,7 @@ vi.mock("../src/utils", () => {
 const stableMockClient = {
   listProjects: vi.fn(),
   getProject: vi.fn(),
+  createProject: vi.fn(),
   listFeatures: vi.fn(),
   getFeature: vi.fn(),
   createFeature: vi.fn(),
@@ -53,6 +56,7 @@ const stableMockClient = {
   updateUserStory: vi.fn(),
   listAcceptanceCriteria: vi.fn(),
   getCriterion: vi.fn(),
+  createAcceptanceCriterion: vi.fn(),
   updateAcceptanceCriterion: vi.fn(),
   submitTask: vi.fn(),
   getTaskStatus: vi.fn(),
@@ -75,9 +79,9 @@ describe("MCP Tools", () => {
 
   // ── handleListTools ──────────────────────────────────────────────────────────
   describe("handleListTools", () => {
-    it("returns 15 vibemap_ prefixed tools", async () => {
+    it("returns 17 vibemap_ prefixed tools", async () => {
       const result = await handleListTools();
-      expect(result.tools).toHaveLength(15);
+      expect(result.tools).toHaveLength(17);
       for (const tool of result.tools) {
         expect(tool.name).toMatch(/^vibemap_/);
       }
@@ -329,6 +333,7 @@ describe("MCP Tools", () => {
     });
 
     it("updates a feature's status", async () => {
+      stableMockClient.getFeature.mockResolvedValue({ id: "f1", status: "in_progress" });
       stableMockClient.updateFeature.mockResolvedValue({ id: "f1", status: "completed" });
 
       const result = await handleCallTool(
@@ -469,6 +474,7 @@ describe("MCP Tools", () => {
     });
 
     it("updates a story's status", async () => {
+      stableMockClient.getUserStory.mockResolvedValue({ id: "s1", status: "open" });
       stableMockClient.updateUserStory.mockResolvedValue({ id: "s1", status: "in_progress" });
 
       const result = await handleCallTool(
@@ -534,6 +540,7 @@ describe("MCP Tools", () => {
   // ── vibemap_update_acceptance_criterion ──────────────────────────────────────
   describe("vibemap_update_acceptance_criterion", () => {
     it("marks a criterion as passed", async () => {
+      stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "pending" });
       stableMockClient.updateAcceptanceCriterion.mockResolvedValue({
         id: "ac1",
         status: "passed",
@@ -555,6 +562,7 @@ describe("MCP Tools", () => {
     });
 
     it("marks a criterion as failed", async () => {
+      stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "pending" });
       stableMockClient.updateAcceptanceCriterion.mockResolvedValue({
         id: "ac1",
         status: "failed",
@@ -1026,12 +1034,14 @@ describe("MCP Tools", () => {
     it("throws McpError when API key is missing", async () => {
       const originalKey = process.env.VIBEMAP_API_KEY;
       delete process.env.VIBEMAP_API_KEY;
+      resetVibeClient(); // Clear cached singleton so missing key is detected
 
       await expect(handleCallTool(makeRequest("vibemap_list_projects"))).rejects.toThrow(
         "VIBEMAP_API_KEY"
       );
 
       process.env.VIBEMAP_API_KEY = originalKey;
+      resetVibeClient(); // Restore for subsequent tests
     });
 
     it("throws McpError for unknown tool name", async () => {
