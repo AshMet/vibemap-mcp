@@ -1077,8 +1077,7 @@ export async function handleCallTool(request: CallToolRequest) {
         const stories =
           (storiesResult as { user_stories: Record<string, unknown>[] }).user_stories || [];
 
-        const truncated =
-          features.length >= FEATURE_LIMIT || stories.length >= STORY_LIMIT;
+        const truncated = features.length >= FEATURE_LIMIT || stories.length >= STORY_LIMIT;
 
         // Build feature → stories map
         const storyByFeature = new Map<string, Record<string, unknown>[]>();
@@ -1136,8 +1135,7 @@ export async function handleCallTool(request: CallToolRequest) {
         };
 
         if (truncated) {
-          summary._warning =
-            `Results may be truncated (limits: ${FEATURE_LIMIT} features, ${STORY_LIMIT} stories). Use vibemap_list_features or vibemap_list_user_stories with pagination for full data.`;
+          summary._warning = `Results may be truncated (limits: ${FEATURE_LIMIT} features, ${STORY_LIMIT} stories). Use vibemap_list_features or vibemap_list_user_stories with pagination for full data.`;
         }
 
         return { content: [{ type: "text", text: JSON.stringify(summary, null, 2) }] };
@@ -1258,10 +1256,7 @@ Based on the above, please:
       );
     }
     if (error instanceof McpError) throw error;
-    throw new McpError(
-      ErrorCode.InternalError,
-      `Tool '${name}' failed: ${errMsg}`
-    );
+    throw new McpError(ErrorCode.InternalError, `Tool '${name}' failed: ${errMsg}`);
   }
 }
 
