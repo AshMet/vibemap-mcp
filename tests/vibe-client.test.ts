@@ -258,4 +258,42 @@ describe("VibeMapClient", () => {
     expect(capturedUrl).not.toContain("status=");
     expect(capturedUrl).toContain("project_id=proj-1");
   });
+
+  // ── Atomic Blueprint ─────────────────────────────────────────────────────
+
+  it("calls /api/mcp/atomic-blueprint with the projectId", async () => {
+    let capturedUrl = "";
+    let capturedAuth = "";
+    const mockBlueprint = {
+      project: { id: "proj-1", name: "X" },
+      roles: [],
+      entities: [],
+      interactions: [],
+      pages: [],
+      navigation: { header: [], footer: [], flows: [] },
+      _meta: { blueprint_version: 1 },
+    };
+    server.use(
+      http.get(`${baseUrl}/api/mcp/atomic-blueprint`, ({ request }) => {
+        capturedUrl = request.url;
+        capturedAuth = request.headers.get("authorization") ?? "";
+        return HttpResponse.json(mockBlueprint);
+      })
+    );
+
+    const result = await client.getAtomicBlueprint("proj-1");
+    expect(capturedUrl).toContain("projectId=proj-1");
+    expect(capturedAuth).toBe(`Bearer ${apiKey}`);
+    expect(result).toEqual(mockBlueprint);
+  });
+
+  it("propagates server errors from the atomic-blueprint route", async () => {
+    server.use(
+      http.get(`${baseUrl}/api/mcp/atomic-blueprint`, () => {
+        return HttpResponse.json({ error: "Project not found" }, { status: 404 });
+      })
+    );
+
+    await expect(client.getAtomicBlueprint("missing")).rejects.toThrow("Project not found");
+  });
 });

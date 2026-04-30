@@ -183,6 +183,8 @@ const GetProjectContextSchema = ProjectIdSchema.extend({
   includeSchema: z.boolean().default(true),
 });
 
+const GetAtomicBlueprintSchema = ProjectIdSchema;
+
 const ScanCodebaseSchema = z.object({
   localPath: z
     .string()
@@ -391,6 +393,19 @@ export async function handleListTools() {
             includePersonas: { type: "boolean", default: true },
             includePages: { type: "boolean", default: true },
             includeSchema: { type: "boolean", default: true },
+          },
+          required: ["projectId"],
+        },
+      },
+      {
+        name: "vibemap_get_atomic_blueprint",
+        description:
+          "Retrieve a code-shaped atomic blueprint of a VibeMap project — relationships hydrated, Kanban metadata stripped, with synthesized interactions and entity state machines. Designed for LLM coders building the application end-to-end. Prefer this over vibemap_get_project_context when generating code; the blueprint omits PM narrative and process metadata to maximise signal-per-token.",
+        annotations: { readOnlyHint: true, destructiveHint: false },
+        inputSchema: {
+          type: "object",
+          properties: {
+            projectId: { type: "string", description: "The VibeMap project ID" },
           },
           required: ["projectId"],
         },
@@ -836,6 +851,14 @@ export async function handleCallTool(request: CallToolRequest) {
         }
 
         return { content: [{ type: "text", text: JSON.stringify(response, null, 2) }] };
+      }
+
+      // ── vibemap_get_atomic_blueprint ───────────────────────────────────────
+      case "vibemap_get_atomic_blueprint": {
+        const parsed = GetAtomicBlueprintSchema.parse(args);
+        const client = getVibeClient();
+        const blueprint = await client.getAtomicBlueprint(parsed.projectId);
+        return { content: [{ type: "text", text: JSON.stringify(blueprint, null, 2) }] };
       }
 
       // ── vibemap_list_features ──────────────────────────────────────────────

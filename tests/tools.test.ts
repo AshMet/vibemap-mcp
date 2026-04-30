@@ -79,9 +79,9 @@ describe("MCP Tools", () => {
 
   // ── handleListTools ──────────────────────────────────────────────────────────
   describe("handleListTools", () => {
-    it("returns 17 vibemap_ prefixed tools", async () => {
+    it("returns 18 vibemap_ prefixed tools", async () => {
       const result = await handleListTools();
-      expect(result.tools).toHaveLength(17);
+      expect(result.tools).toHaveLength(18);
       for (const tool of result.tools) {
         expect(tool.name).toMatch(/^vibemap_/);
       }

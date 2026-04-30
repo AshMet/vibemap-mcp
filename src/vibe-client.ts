@@ -186,6 +186,12 @@ export class VibeMapClient {
     );
   }
 
+  async getAtomicBlueprint(projectId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      `/api/mcp/atomic-blueprint${this.buildQuery({ projectId })}`
+    );
+  }
+
   async createProject(data: Record<string, unknown>): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>("/api/crud/projects", {
       method: "POST",
