@@ -214,6 +214,52 @@ const GetGenerationStatusSchema = z.object({
     .describe("Session ID returned by vibemap_analyze_codebase"),
 });
 
+// ── Kanban Tracker (typed transitions) schemas ──────────────────────────────
+
+const GetNextReadyCriterionSchema = ProjectIdSchema;
+
+const ClaimCriterionSchema = z.object({
+  criterionId: z.string().min(1, "criterionId is required"),
+});
+
+const ReportProgressSchema = z.object({
+  criterionId: z.string().min(1, "criterionId is required"),
+  summary: z.string().min(1).max(2000, "summary must be 1-2000 chars"),
+});
+
+const SubmitForReviewSchema = z.object({
+  criterionId: z.string().min(1, "criterionId is required"),
+  gitSha: z.string().min(7, "gitSha must be at least 7 chars"),
+  diffUrl: z.string().min(1, "diffUrl is required"),
+  notes: z.string().max(2000).optional(),
+});
+
+const ResolveReviewSchema = z.object({
+  criterionId: z.string().min(1, "criterionId is required"),
+  outcome: z.enum(["passed", "failed"]),
+  testRunUrl: z.string().optional(),
+  notes: z.string().max(2000).optional(),
+});
+
+const BlockCriterionSchema = z.object({
+  criterionId: z.string().min(1, "criterionId is required"),
+  category: z.enum(["spec_unclear", "missing_dep", "external_blocker", "other"]),
+  reason: z.string().min(1).max(2000, "reason must be 1-2000 chars"),
+});
+
+const UnblockCriterionSchema = z.object({
+  criterionId: z.string().min(1, "criterionId is required"),
+  resolution: z.string().min(1).max(2000, "resolution must be 1-2000 chars"),
+});
+
+const ListKanbanEventsSchema = ProjectIdSchema.extend({
+  since: z
+    .string()
+    .optional()
+    .describe("ISO timestamp; only events strictly after this are returned"),
+  limit: z.number().int().min(1).max(1000).default(200),
+});
+
 // ─── Kanban transition validation ─────────────────────────────────────────────
 
 const FEATURE_TRANSITIONS: Record<FeatureStatus, FeatureStatus[]> = {
@@ -620,7 +666,7 @@ export async function handleListTools() {
       {
         name: "vibemap_update_kanban_status",
         description:
-          "Atomically advance or update the kanban status of a feature, user story, or acceptance criterion. Validates allowed state transitions and prevents invalid moves. Call this when you start or finish implementing something.\n\nFeature stages: draft → open → in_progress → completed\nStory stages: draft → has_criteria → open → in_progress → completed\nCriterion stages: draft → pending → passed | failed",
+          "[DEPRECATED — use the typed transition tools (claim, report_progress, submit_for_review, resolve_review, block, unblock) instead. This tool will be removed in a future release.] Atomically advance or update the kanban status of a feature, user story, or acceptance criterion. Validates allowed state transitions and prevents invalid moves. Call this when you start or finish implementing something.\n\nFeature stages: draft → open → in_progress → completed\nStory stages: draft → has_criteria → open → in_progress → completed\nCriterion stages: draft → pending → passed | failed",
         annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
         inputSchema: {
           type: "object",
@@ -656,6 +702,143 @@ export async function handleListTools() {
             },
           },
           required: ["projectId"],
+        },
+      },
+      {
+        name: "vibemap_get_next_ready_criterion",
+        description:
+          "Get the highest-priority acceptance criterion in `ready` status for the given project. Returns the criterion to work on next, or null if nothing is ready.",
+        annotations: { readOnlyHint: true, destructiveHint: false },
+        inputSchema: {
+          type: "object",
+          required: ["projectId"],
+          properties: {
+            projectId: { type: "string", description: "Project UUID" },
+          },
+        },
+      },
+      {
+        name: "vibemap_claim_criterion",
+        description:
+          "Atomically claim an acceptance criterion for implementation. Transitions ready → in_progress. Returns 409 (race) if another agent already claimed it.",
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+        inputSchema: {
+          type: "object",
+          required: ["criterionId"],
+          properties: {
+            criterionId: { type: "string", description: "Acceptance criterion UUID" },
+          },
+        },
+      },
+      {
+        name: "vibemap_report_progress",
+        description:
+          "Append a progress event to the criterion timeline without changing its status. Used to surface intermediate work for visibility.",
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+        inputSchema: {
+          type: "object",
+          required: ["criterionId", "summary"],
+          properties: {
+            criterionId: { type: "string" },
+            summary: { type: "string", description: "Short progress note (1-2000 chars)" },
+          },
+        },
+      },
+      {
+        name: "vibemap_submit_for_review",
+        description:
+          "Submit completed work for review. Transitions in_progress → in_review. Requires a git SHA and a diff URL as evidence.",
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+        inputSchema: {
+          type: "object",
+          required: ["criterionId", "gitSha", "diffUrl"],
+          properties: {
+            criterionId: { type: "string" },
+            gitSha: { type: "string", description: "7+ char commit SHA" },
+            diffUrl: {
+              type: "string",
+              description: "URL to view the diff (PR link or compare URL)",
+            },
+            notes: {
+              type: "string",
+              description: "Optional notes for the reviewer (max 2000 chars)",
+            },
+          },
+        },
+      },
+      {
+        name: "vibemap_resolve_review",
+        description:
+          "Resolve a criterion in review. Transitions in_review → passed | failed. NOTE: agents (env_token:agent) cannot self-resolve their own work — this tool requires a CI-scoped token (env_token:ci) or a session user.",
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+        inputSchema: {
+          type: "object",
+          required: ["criterionId", "outcome"],
+          properties: {
+            criterionId: { type: "string" },
+            outcome: { type: "string", enum: ["passed", "failed"] },
+            testRunUrl: { type: "string" },
+            notes: { type: "string" },
+          },
+        },
+      },
+      {
+        name: "vibemap_block_criterion",
+        description:
+          "Mark a criterion as blocked. Transitions any-active-status → blocked. Use this when external dependency, ambiguity, or environmental issue prevents progress.",
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+        inputSchema: {
+          type: "object",
+          required: ["criterionId", "category", "reason"],
+          properties: {
+            criterionId: { type: "string" },
+            category: {
+              type: "string",
+              enum: ["spec_unclear", "missing_dep", "external_blocker", "other"],
+            },
+            reason: {
+              type: "string",
+              description: "Human-readable explanation (1-2000 chars)",
+            },
+          },
+        },
+      },
+      {
+        name: "vibemap_unblock_criterion",
+        description:
+          "Unblock a criterion. Transitions blocked → prior_status (recorded when block was set; defaults to ready).",
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+        inputSchema: {
+          type: "object",
+          required: ["criterionId", "resolution"],
+          properties: {
+            criterionId: { type: "string" },
+            resolution: {
+              type: "string",
+              description: "How the blocker was resolved (1-2000 chars)",
+            },
+          },
+        },
+      },
+      {
+        name: "vibemap_list_kanban_events",
+        description:
+          "List kanban transition events for a project, newest first. Use `since` to fetch only events after a timestamp (for reconnect-backfill).",
+        annotations: { readOnlyHint: true, destructiveHint: false },
+        inputSchema: {
+          type: "object",
+          required: ["projectId"],
+          properties: {
+            projectId: { type: "string" },
+            since: {
+              type: "string",
+              description: "ISO timestamp; only events strictly after this are returned",
+            },
+            limit: {
+              type: "number",
+              description: "Max events to return (default 200, max 1000)",
+            },
+          },
         },
       },
 
@@ -1162,6 +1345,84 @@ export async function handleCallTool(request: CallToolRequest) {
         }
 
         return { content: [{ type: "text", text: JSON.stringify(summary, null, 2) }] };
+      }
+
+      // ── vibemap_get_next_ready_criterion ───────────────────────────────────
+      case "vibemap_get_next_ready_criterion": {
+        const parsed = GetNextReadyCriterionSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.getNextReadyCriterion(parsed.projectId);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      // ── vibemap_claim_criterion ────────────────────────────────────────────
+      case "vibemap_claim_criterion": {
+        const parsed = ClaimCriterionSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.claimCriterion(parsed.criterionId);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      // ── vibemap_report_progress ────────────────────────────────────────────
+      case "vibemap_report_progress": {
+        const parsed = ReportProgressSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.reportProgress(parsed.criterionId, parsed.summary);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      // ── vibemap_submit_for_review ──────────────────────────────────────────
+      case "vibemap_submit_for_review": {
+        const parsed = SubmitForReviewSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.submitForReview(
+          parsed.criterionId,
+          parsed.gitSha,
+          parsed.diffUrl,
+          parsed.notes
+        );
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      // ── vibemap_resolve_review ─────────────────────────────────────────────
+      case "vibemap_resolve_review": {
+        const parsed = ResolveReviewSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.resolveReview(
+          parsed.criterionId,
+          parsed.outcome,
+          parsed.testRunUrl,
+          parsed.notes
+        );
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      // ── vibemap_block_criterion ────────────────────────────────────────────
+      case "vibemap_block_criterion": {
+        const parsed = BlockCriterionSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.blockCriterion(
+          parsed.criterionId,
+          parsed.category,
+          parsed.reason
+        );
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      // ── vibemap_unblock_criterion ──────────────────────────────────────────
+      case "vibemap_unblock_criterion": {
+        const parsed = UnblockCriterionSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.unblockCriterion(parsed.criterionId, parsed.resolution);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      // ── vibemap_list_kanban_events ─────────────────────────────────────────
+      case "vibemap_list_kanban_events": {
+        const parsed = ListKanbanEventsSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.listKanbanEvents(parsed.projectId, parsed.since, parsed.limit);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
 
       // ── vibemap_scan_codebase ──────────────────────────────────────────────

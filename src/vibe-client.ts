@@ -301,4 +301,84 @@ export class VibeMapClient {
   async getTaskStatus(sessionId: string): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>(`/api/tasks/${sessionId}/status`);
   }
+
+  // ── Kanban Tracker (typed transitions) ────────────────────────────────────
+
+  async getNextReadyCriterion(projectId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      `/api/mcp/kanban/projects/${projectId}/next-ready`
+    );
+  }
+
+  async claimCriterion(criterionId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      `/api/mcp/kanban/criterion/${criterionId}/claim`,
+      { method: "POST", body: JSON.stringify({}) }
+    );
+  }
+
+  async reportProgress(criterionId: string, summary: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      `/api/mcp/kanban/criterion/${criterionId}/progress`,
+      { method: "POST", body: JSON.stringify({ summary }) }
+    );
+  }
+
+  async submitForReview(
+    criterionId: string,
+    gitSha: string,
+    diffUrl: string,
+    notes?: string
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      `/api/mcp/kanban/criterion/${criterionId}/submit-for-review`,
+      { method: "POST", body: JSON.stringify({ git_sha: gitSha, diff_url: diffUrl, notes }) }
+    );
+  }
+
+  async resolveReview(
+    criterionId: string,
+    outcome: "passed" | "failed",
+    testRunUrl?: string,
+    notes?: string
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      `/api/mcp/kanban/criterion/${criterionId}/resolve-review`,
+      { method: "POST", body: JSON.stringify({ outcome, test_run_url: testRunUrl, notes }) }
+    );
+  }
+
+  async blockCriterion(
+    criterionId: string,
+    category: "spec_unclear" | "missing_dep" | "external_blocker" | "other",
+    reason: string
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      `/api/mcp/kanban/criterion/${criterionId}/block`,
+      { method: "POST", body: JSON.stringify({ category, reason }) }
+    );
+  }
+
+  async unblockCriterion(
+    criterionId: string,
+    resolution: string
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      `/api/mcp/kanban/criterion/${criterionId}/unblock`,
+      { method: "POST", body: JSON.stringify({ resolution }) }
+    );
+  }
+
+  async listKanbanEvents(
+    projectId: string,
+    since?: string,
+    limit = 200
+  ): Promise<Record<string, unknown>> {
+    const qp = new URLSearchParams();
+    if (since) qp.set("since", since);
+    qp.set("limit", String(limit));
+    return this.request<Record<string, unknown>>(
+      `/api/mcp/kanban/projects/${projectId}/events?${qp.toString()}`
+    );
+  }
 }
