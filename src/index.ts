@@ -9,6 +9,7 @@ import {
   McpError,
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { formatPageSourceResponse, type PageRecord } from "./page-source.js";
 import { buildCodebaseDigest, walkDir } from "./utils.js";
 import {
   type CriterionStatus,
@@ -184,6 +185,10 @@ const GetProjectContextSchema = ProjectIdSchema.extend({
 });
 
 const GetAtomicBlueprintSchema = ProjectIdSchema;
+
+const GetPageSourceSchema = ProjectIdSchema.extend({
+  pageId: z.string().min(1, "pageId is required"),
+});
 
 const ScanCodebaseSchema = z.object({
   localPath: z
@@ -454,6 +459,21 @@ export async function handleListTools() {
             projectId: { type: "string", description: "The VibeMap project ID" },
           },
           required: ["projectId"],
+        },
+      },
+
+      {
+        name: "vibemap_get_page_source",
+        description:
+          "Retrieve a VibeMap page's generated source code so you can pull it straight into a repo. Returns the page's own source_code plus the source_code of each of its sections. Use this to export a generated page into your codebase instead of copy-pasting.",
+        annotations: { readOnlyHint: true, destructiveHint: false },
+        inputSchema: {
+          type: "object",
+          properties: {
+            projectId: { type: "string", description: "The VibeMap project ID" },
+            pageId: { type: "string", description: "The page ID to export" },
+          },
+          required: ["projectId", "pageId"],
         },
       },
 
@@ -1042,6 +1062,50 @@ export async function handleCallTool(request: CallToolRequest) {
         const client = getVibeClient();
         const blueprint = await client.getAtomicBlueprint(parsed.projectId);
         return { content: [{ type: "text", text: JSON.stringify(blueprint, null, 2) }] };
+      }
+
+      // ── vibemap_get_page_source ────────────────────────────────────────────
+      case "vibemap_get_page_source": {
+        const parsed = GetPageSourceSchema.parse(args);
+        const client = getVibeClient();
+
+        let page: PageRecord;
+        try {
+          page = (await client.getPageWithSections(parsed.pageId)) as PageRecord;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          // Graceful "not found" — return error content instead of throwing.
+          if (/not found/i.test(msg)) {
+            return {
+              isError: true,
+              content: [
+                {
+                  type: "text",
+                  text: `Page not found: no page with id '${parsed.pageId}' in project '${parsed.projectId}'.`,
+                },
+              ],
+            };
+          }
+          throw err;
+        }
+
+        // Guard: ensure the page belongs to the requested project.
+        if (page.project_id && page.project_id !== parsed.projectId) {
+          return {
+            isError: true,
+            content: [
+              {
+                type: "text",
+                text: `Page '${parsed.pageId}' does not belong to project '${parsed.projectId}'.`,
+              },
+            ],
+          };
+        }
+
+        const sections =
+          (page.relationships?.sections as unknown[] | undefined) ?? ([] as unknown[]);
+        const response = formatPageSourceResponse(page, sections);
+        return { content: [{ type: "text", text: JSON.stringify(response, null, 2) }] };
       }
 
       // ── vibemap_list_features ──────────────────────────────────────────────

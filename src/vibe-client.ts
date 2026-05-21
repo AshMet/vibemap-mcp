@@ -192,6 +192,19 @@ export class VibeMapClient {
     );
   }
 
+  // ── Pages ────────────────────────────────────────────────────────────────
+
+  /**
+   * Fetch a single page with its sections (via includeRelationships). The
+   * returned object includes the page's own fields (id, name, path,
+   * source_code, project_id) plus `relationships.sections`.
+   */
+  async getPageWithSections(pageId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      `/api/crud/pages${this.buildQuery({ id: pageId, includeRelationships: true })}`
+    );
+  }
+
   async createProject(data: Record<string, unknown>): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>("/api/crud/projects", {
       method: "POST",
@@ -311,10 +324,10 @@ export class VibeMapClient {
   }
 
   async claimCriterion(criterionId: string): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
-      `/api/mcp/kanban/criterion/${criterionId}/claim`,
-      { method: "POST", body: JSON.stringify({}) }
-    );
+    return this.request<Record<string, unknown>>(`/api/mcp/kanban/criterion/${criterionId}/claim`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
   }
 
   async reportProgress(criterionId: string, summary: string): Promise<Record<string, unknown>> {
@@ -353,10 +366,10 @@ export class VibeMapClient {
     category: "spec_unclear" | "missing_dep" | "external_blocker" | "other",
     reason: string
   ): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>(
-      `/api/mcp/kanban/criterion/${criterionId}/block`,
-      { method: "POST", body: JSON.stringify({ category, reason }) }
-    );
+    return this.request<Record<string, unknown>>(`/api/mcp/kanban/criterion/${criterionId}/block`, {
+      method: "POST",
+      body: JSON.stringify({ category, reason }),
+    });
   }
 
   async unblockCriterion(

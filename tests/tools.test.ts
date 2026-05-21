@@ -15,6 +15,7 @@ vi.mock("../src/vibe-client", () => {
       listProjects: vi.fn(),
       getProject: vi.fn(),
       createProject: vi.fn(),
+      getPageWithSections: vi.fn(),
       listFeatures: vi.fn(),
       getFeature: vi.fn(),
       createFeature: vi.fn(),
@@ -46,6 +47,7 @@ const stableMockClient = {
   listProjects: vi.fn(),
   getProject: vi.fn(),
   createProject: vi.fn(),
+  getPageWithSections: vi.fn(),
   listFeatures: vi.fn(),
   getFeature: vi.fn(),
   createFeature: vi.fn(),
@@ -79,9 +81,9 @@ describe("MCP Tools", () => {
 
   // ── handleListTools ──────────────────────────────────────────────────────────
   describe("handleListTools", () => {
-    it("returns 18 vibemap_ prefixed tools", async () => {
+    it("returns 19 vibemap_ prefixed tools", async () => {
       const result = await handleListTools();
-      expect(result.tools).toHaveLength(18);
+      expect(result.tools).toHaveLength(19);
       for (const tool of result.tools) {
         expect(tool.name).toMatch(/^vibemap_/);
       }
@@ -109,6 +111,7 @@ describe("MCP Tools", () => {
       const expected = [
         "vibemap_list_projects",
         "vibemap_get_project_context",
+        "vibemap_get_page_source",
         "vibemap_list_features",
         "vibemap_create_feature",
         "vibemap_update_feature",
@@ -232,6 +235,97 @@ describe("MCP Tools", () => {
       await expect(handleCallTool(makeRequest("vibemap_get_project_context", {}))).rejects.toThrow(
         McpError
       );
+    });
+  });
+
+  // ── vibemap_get_page_source ──────────────────────────────────────────────────
+  describe("vibemap_get_page_source", () => {
+    it("returns page source and section sources", async () => {
+      stableMockClient.getPageWithSections.mockResolvedValue({
+        id: "pg1",
+        name: "Dashboard",
+        path: "/dashboard",
+        source_code: "export default function Dashboard() {}",
+        project_id: "proj-1",
+        relationships: {
+          sections: [
+            { id: "sec1", name: "Header", source_code: "<header/>" },
+            { id: "sec2", name: "Body", source_code: "<main/>" },
+          ],
+        },
+      });
+
+      const result = await handleCallTool(
+        makeRequest("vibemap_get_page_source", { projectId: "proj-1", pageId: "pg1" })
+      );
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.page.id).toBe("pg1");
+      expect(data.page.path).toBe("/dashboard");
+      expect(data.page.source_code).toContain("Dashboard");
+      expect(data.sections).toHaveLength(2);
+      expect(data.sections[0].name).toBe("Header");
+      expect(data.sections[1].source_code).toBe("<main/>");
+      expect(stableMockClient.getPageWithSections).toHaveBeenCalledWith("pg1");
+    });
+
+    it("returns an empty sections array when the page has none", async () => {
+      stableMockClient.getPageWithSections.mockResolvedValue({
+        id: "pg1",
+        name: "Empty",
+        path: "/empty",
+        source_code: "x",
+        project_id: "proj-1",
+        relationships: { sections: [] },
+      });
+
+      const result = await handleCallTool(
+        makeRequest("vibemap_get_page_source", { projectId: "proj-1", pageId: "pg1" })
+      );
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.sections).toEqual([]);
+    });
+
+    it("returns graceful error content when the page is not found", async () => {
+      stableMockClient.getPageWithSections.mockRejectedValue(new Error("Page not found"));
+
+      const result = await handleCallTool(
+        makeRequest("vibemap_get_page_source", { projectId: "proj-1", pageId: "missing" })
+      );
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("Page not found");
+    });
+
+    it("returns error content when the page belongs to another project", async () => {
+      stableMockClient.getPageWithSections.mockResolvedValue({
+        id: "pg1",
+        name: "Other",
+        path: "/other",
+        source_code: "x",
+        project_id: "proj-2",
+        relationships: { sections: [] },
+      });
+
+      const result = await handleCallTool(
+        makeRequest("vibemap_get_page_source", { projectId: "proj-1", pageId: "pg1" })
+      );
+
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("does not belong");
+    });
+
+    it("throws on missing pageId", async () => {
+      await expect(
+        handleCallTool(makeRequest("vibemap_get_page_source", { projectId: "proj-1" }))
+      ).rejects.toThrow(McpError);
+    });
+
+    it("throws on missing projectId", async () => {
+      await expect(
+        handleCallTool(makeRequest("vibemap_get_page_source", { pageId: "pg1" }))
+      ).rejects.toThrow(McpError);
     });
   });
 
