@@ -366,6 +366,30 @@ function stripFields(data: unknown, remove: string[]): unknown {
 
 const GLOBAL_STRIP = ["slug", "embedding", "created_at", "updated_at", "original_prompt"];
 
+// Entity-specific strip lists for read/context surfaces. These drop planning
+// metadata (priority, status, effort, etc.) that bloats the context window but
+// is not needed by an external coding agent consuming the spec. Kanban status
+// is read for column grouping *before* stripping, so dropping it from the row
+// is safe — the board column already encodes it.
+const FEATURE_STRIP = [
+  ...GLOBAL_STRIP,
+  "priority",
+  "category",
+  "complexity",
+  "effort",
+  "business_value",
+  "status",
+];
+const STORY_STRIP = [
+  ...GLOBAL_STRIP,
+  "persona_id",
+  "features",
+  "priority",
+  "estimated_effort",
+  "status",
+];
+const AC_STRIP = [...GLOBAL_STRIP, "title", "description"];
+
 // ─── Server setup ─────────────────────────────────────────────────────────────
 
 export const server = new Server(
@@ -1005,7 +1029,7 @@ export async function handleCallTool(request: CallToolRequest) {
             const result = await client.listFeatures({ project_id: parsed.projectId, limit: 100 });
             features = (result as { features: unknown[] }).features || [];
           }
-          response.features = stripFields(features, GLOBAL_STRIP);
+          response.features = stripFields(features, FEATURE_STRIP);
         }
 
         if (parsed.includeStories) {
@@ -1017,7 +1041,7 @@ export async function handleCallTool(request: CallToolRequest) {
             });
             stories = (result as { user_stories: unknown[] }).user_stories || [];
           }
-          response.stories = stripFields(stories, [...GLOBAL_STRIP, "persona_id", "features"]);
+          response.stories = stripFields(stories, STORY_STRIP);
         }
 
         if (parsed.includePersonas) {
@@ -1112,7 +1136,7 @@ export async function handleCallTool(request: CallToolRequest) {
       case "vibemap_list_features": {
         const parsed = ListFeaturesSchema.parse(args);
         const client = getVibeClient();
-        const result = await client.listFeatures({
+        const result = (await client.listFeatures({
           project_id: parsed.projectId,
           status: parsed.status,
           priority: parsed.priority,
@@ -1120,8 +1144,8 @@ export async function handleCallTool(request: CallToolRequest) {
           search: parsed.search,
           limit: parsed.limit,
           offset: parsed.offset,
-        });
-        const clean = stripFields(result, GLOBAL_STRIP);
+        })) as { features: unknown[]; meta: unknown };
+        const clean = { ...result, features: stripFields(result.features, FEATURE_STRIP) };
         return { content: [{ type: "text", text: JSON.stringify(clean, null, 2) }] };
       }
 
@@ -1159,7 +1183,7 @@ export async function handleCallTool(request: CallToolRequest) {
       case "vibemap_list_user_stories": {
         const parsed = ListStoriesSchema.parse(args);
         const client = getVibeClient();
-        const result = await client.listUserStories({
+        const result = (await client.listUserStories({
           project_id: parsed.projectId,
           feature_id: parsed.featureId,
           status: parsed.status,
@@ -1167,8 +1191,8 @@ export async function handleCallTool(request: CallToolRequest) {
           search: parsed.search,
           limit: parsed.limit,
           offset: parsed.offset,
-        });
-        const clean = stripFields(result, GLOBAL_STRIP);
+        })) as { user_stories: unknown[]; meta: unknown };
+        const clean = { ...result, user_stories: stripFields(result.user_stories, STORY_STRIP) };
         return { content: [{ type: "text", text: JSON.stringify(clean, null, 2) }] };
       }
 
@@ -1215,15 +1239,18 @@ export async function handleCallTool(request: CallToolRequest) {
       case "vibemap_list_acceptance_criteria": {
         const parsed = ListCriteriaSchema.parse(args);
         const client = getVibeClient();
-        const result = await client.listAcceptanceCriteria({
+        const result = (await client.listAcceptanceCriteria({
           story_id: parsed.storyId,
           feature_id: parsed.featureId,
           project_id: parsed.projectId,
           status: parsed.status,
           limit: parsed.limit,
           offset: parsed.offset,
-        });
-        const clean = stripFields(result, GLOBAL_STRIP);
+        })) as { acceptance_criteria: unknown[]; meta: unknown };
+        const clean = {
+          ...result,
+          acceptance_criteria: stripFields(result.acceptance_criteria, AC_STRIP),
+        };
         return { content: [{ type: "text", text: JSON.stringify(clean, null, 2) }] };
       }
 
@@ -1379,11 +1406,11 @@ export async function handleCallTool(request: CallToolRequest) {
           };
           for (const s of featureStories) {
             const ss = (s.status as string) || "draft";
-            storyBoard[ss]?.push(stripFields(s, [...GLOBAL_STRIP, "features"]) as unknown);
+            storyBoard[ss]?.push(stripFields(s, STORY_STRIP) as unknown);
           }
 
           const entry = {
-            ...(stripFields(feature, [...GLOBAL_STRIP, "projects"]) as object),
+            ...(stripFields(feature, [...FEATURE_STRIP, "projects"]) as object),
             _stories: storyBoard,
             _storyCount: featureStories.length,
             _completedStories: featureStories.filter((s) => s.status === "completed").length,
