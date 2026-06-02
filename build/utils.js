@@ -1,5 +1,6 @@
 import * as fs from "fs/promises";
 import * as path from "path";
+
 // Directories and files to always ignore
 const IGNORE_DIRS = new Set([
   "node_modules",

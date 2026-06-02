@@ -10,6 +10,7 @@ import {
 import { z } from "zod";
 import { buildCodebaseDigest, walkDir } from "./utils.js";
 import { VibeMapClient } from "./vibe-client.js";
+
 // ─── Zod Schemas ─────────────────────────────────────────────────────────────
 const ProjectIdSchema = z.object({
   projectId: z.string().min(1, "projectId is required"),
