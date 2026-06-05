@@ -192,6 +192,12 @@ export class VibeMapClient {
     );
   }
 
+  async listAccessRules(projectId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      `/api/mcp/access-rules${this.buildQuery({ projectId })}`
+    );
+  }
+
   // ── Pages ────────────────────────────────────────────────────────────────
 
   /**

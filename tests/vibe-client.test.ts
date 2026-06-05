@@ -296,4 +296,45 @@ describe("VibeMapClient", () => {
 
     await expect(client.getAtomicBlueprint("missing")).rejects.toThrow("Project not found");
   });
+
+  it("calls /api/mcp/access-rules with the projectId", async () => {
+    let capturedUrl = "";
+    let capturedAuth = "";
+    const mockRules = {
+      project_id: "proj-1",
+      table_rules: [
+        {
+          id: "tr-1",
+          table_name: "orders",
+          role: "customer",
+          can_select: true,
+          op_conditions: { select: { kind: "own", column: "user_id" } },
+        },
+      ],
+      page_rules: [],
+      reconciliation: { findings: [], high_confidence: 0, low_confidence: 0, safe_to_auto_apply: 0 },
+    };
+    server.use(
+      http.get(`${baseUrl}/api/mcp/access-rules`, ({ request }) => {
+        capturedUrl = request.url;
+        capturedAuth = request.headers.get("authorization") ?? "";
+        return HttpResponse.json(mockRules);
+      })
+    );
+
+    const result = await client.listAccessRules("proj-1");
+    expect(capturedUrl).toContain("projectId=proj-1");
+    expect(capturedAuth).toBe(`Bearer ${apiKey}`);
+    expect(result).toEqual(mockRules);
+  });
+
+  it("propagates server errors from the access-rules route", async () => {
+    server.use(
+      http.get(`${baseUrl}/api/mcp/access-rules`, () => {
+        return HttpResponse.json({ error: "Project not found" }, { status: 404 });
+      })
+    );
+
+    await expect(client.listAccessRules("missing")).rejects.toThrow("Project not found");
+  });
 });

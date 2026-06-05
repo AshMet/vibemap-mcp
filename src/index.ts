@@ -186,6 +186,8 @@ const GetProjectContextSchema = ProjectIdSchema.extend({
 
 const GetAtomicBlueprintSchema = ProjectIdSchema;
 
+const ListAccessRulesSchema = ProjectIdSchema;
+
 const GetPageSourceSchema = ProjectIdSchema.extend({
   pageId: z.string().min(1, "pageId is required"),
 });
@@ -476,6 +478,20 @@ export async function handleListTools() {
         name: "vibemap_get_atomic_blueprint",
         description:
           "Retrieve a code-shaped atomic blueprint of a VibeMap project — relationships hydrated, Kanban metadata stripped, with synthesized interactions and entity state machines. Designed for LLM coders building the application end-to-end. Prefer this over vibemap_get_project_context when generating code; the blueprint omits PM narrative and process metadata to maximise signal-per-token.",
+        annotations: { readOnlyHint: true, destructiveHint: false },
+        inputSchema: {
+          type: "object",
+          properties: {
+            projectId: { type: "string", description: "The VibeMap project ID" },
+          },
+          required: ["projectId"],
+        },
+      },
+
+      {
+        name: "vibemap_list_access_rules",
+        description:
+          "List a VibeMap project's access-control rules: table-level rules (per persona/role, with can_select/insert/update/delete and structured op_conditions predicates like \"own rows only\") and page-level rules (can_view/create_content/edit/delete with predicates), plus an advisory reconciliation summary flagging page↔table drift. Use this to generate correct RLS policies and route/UI authorization — the atomic blueprint only carries page-level conditions, so call this for table-level (RLS) access control.",
         annotations: { readOnlyHint: true, destructiveHint: false },
         inputSchema: {
           type: "object",
@@ -1086,6 +1102,14 @@ export async function handleCallTool(request: CallToolRequest) {
         const client = getVibeClient();
         const blueprint = await client.getAtomicBlueprint(parsed.projectId);
         return { content: [{ type: "text", text: JSON.stringify(blueprint, null, 2) }] };
+      }
+
+      // ── vibemap_list_access_rules ──────────────────────────────────────────
+      case "vibemap_list_access_rules": {
+        const parsed = ListAccessRulesSchema.parse(args);
+        const client = getVibeClient();
+        const rules = await client.listAccessRules(parsed.projectId);
+        return { content: [{ type: "text", text: JSON.stringify(rules, null, 2) }] };
       }
 
       // ── vibemap_get_page_source ────────────────────────────────────────────
