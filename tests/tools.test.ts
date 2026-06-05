@@ -90,6 +90,7 @@ describe("MCP Tools", () => {
     "vibemap_get_project_context",
     "vibemap_get_atomic_blueprint",
     "vibemap_list_access_rules",
+    "vibemap_list_changesets",
     "vibemap_get_page_source",
     "vibemap_list_features",
     "vibemap_create_feature",

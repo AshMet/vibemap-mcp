@@ -198,6 +198,19 @@ export class VibeMapClient {
     );
   }
 
+  async listChangesets(
+    projectId: string,
+    opts: { limit?: number; includeOps?: boolean } = {}
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      `/api/mcp/changesets${this.buildQuery({
+        projectId,
+        limit: opts.limit,
+        includeOps: opts.includeOps,
+      })}`
+    );
+  }
+
   // ── Pages ────────────────────────────────────────────────────────────────
 
   /**

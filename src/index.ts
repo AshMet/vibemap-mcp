@@ -188,6 +188,11 @@ const GetAtomicBlueprintSchema = ProjectIdSchema;
 
 const ListAccessRulesSchema = ProjectIdSchema;
 
+const ListChangesetsSchema = ProjectIdSchema.extend({
+  limit: z.number().int().min(1).max(200).optional(),
+  includeOps: z.boolean().optional(),
+});
+
 const GetPageSourceSchema = ProjectIdSchema.extend({
   pageId: z.string().min(1, "pageId is required"),
 });
@@ -497,6 +502,28 @@ export async function handleListTools() {
           type: "object",
           properties: {
             projectId: { type: "string", description: "The VibeMap project ID" },
+          },
+          required: ["projectId"],
+        },
+      },
+
+      {
+        name: "vibemap_list_changesets",
+        description:
+          "List a VibeMap project's version-control changesets (most recent first) with a per-changeset op count. Every write you make through this server is wrapped in a changeset, so use this to see the changesets your own edits produced, audit who/what changed the project, or review recent edit history. Pass includeOps=true to inline each changeset's individual operations (entity_type, op, diff).",
+        annotations: { readOnlyHint: true, destructiveHint: false },
+        inputSchema: {
+          type: "object",
+          properties: {
+            projectId: { type: "string", description: "The VibeMap project ID" },
+            limit: {
+              type: "number",
+              description: "Max changesets to return (1-200, default 50)",
+            },
+            includeOps: {
+              type: "boolean",
+              description: "Inline each changeset's individual ops + diffs (default false)",
+            },
           },
           required: ["projectId"],
         },
@@ -1110,6 +1137,17 @@ export async function handleCallTool(request: CallToolRequest) {
         const client = getVibeClient();
         const rules = await client.listAccessRules(parsed.projectId);
         return { content: [{ type: "text", text: JSON.stringify(rules, null, 2) }] };
+      }
+
+      // ── vibemap_list_changesets ────────────────────────────────────────────
+      case "vibemap_list_changesets": {
+        const parsed = ListChangesetsSchema.parse(args);
+        const client = getVibeClient();
+        const changesets = await client.listChangesets(parsed.projectId, {
+          limit: parsed.limit,
+          includeOps: parsed.includeOps,
+        });
+        return { content: [{ type: "text", text: JSON.stringify(changesets, null, 2) }] };
       }
 
       // ── vibemap_get_page_source ────────────────────────────────────────────

@@ -85,7 +85,7 @@ Same format as Cursor. Add to your Windsurf MCP settings file and restart.
 
 ## Tools
 
-The server exposes **28 tools** via the `vibemap_` prefix.
+The server exposes **29 tools** via the `vibemap_` prefix.
 
 **Projects & context**
 
@@ -136,6 +136,12 @@ The server exposes **28 tools** via the `vibemap_` prefix.
 | `vibemap_unblock_criterion` | Unblock a criterion with a resolution |
 | `vibemap_list_kanban_events` | Kanban transition history (for incremental sync) |
 | `vibemap_update_kanban_status` | ⚠️ Deprecated — use the lifecycle tools above |
+
+**Version control**
+
+| Tool | Description |
+|---|---|
+| `vibemap_list_changesets` | List changesets (your writes + history) with op counts; `includeOps` for diffs |
 
 **Codebase**
 

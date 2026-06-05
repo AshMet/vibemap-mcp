@@ -337,4 +337,43 @@ describe("VibeMapClient", () => {
 
     await expect(client.listAccessRules("missing")).rejects.toThrow("Project not found");
   });
+
+  it("calls /api/mcp/changesets with projectId and forwards limit + includeOps", async () => {
+    let capturedUrl = "";
+    const mockChangesets = {
+      project_id: "proj-1",
+      limit: 10,
+      count: 1,
+      changesets: [
+        { id: "cs-1", sequence_number: 3, source: "mcp", op_count: 2 },
+      ],
+    };
+    server.use(
+      http.get(`${baseUrl}/api/mcp/changesets`, ({ request }) => {
+        capturedUrl = request.url;
+        return HttpResponse.json(mockChangesets);
+      })
+    );
+
+    const result = await client.listChangesets("proj-1", { limit: 10, includeOps: true });
+    expect(capturedUrl).toContain("projectId=proj-1");
+    expect(capturedUrl).toContain("limit=10");
+    expect(capturedUrl).toContain("includeOps=true");
+    expect(result).toEqual(mockChangesets);
+  });
+
+  it("omits optional changeset params when not provided", async () => {
+    let capturedUrl = "";
+    server.use(
+      http.get(`${baseUrl}/api/mcp/changesets`, ({ request }) => {
+        capturedUrl = request.url;
+        return HttpResponse.json({ project_id: "proj-1", changesets: [] });
+      })
+    );
+
+    await client.listChangesets("proj-1");
+    expect(capturedUrl).toContain("projectId=proj-1");
+    expect(capturedUrl).not.toContain("limit=");
+    expect(capturedUrl).not.toContain("includeOps=");
+  });
 });
