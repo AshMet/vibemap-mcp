@@ -80,10 +80,44 @@ describe("MCP Tools", () => {
   });
 
   // ── handleListTools ──────────────────────────────────────────────────────────
+  // Canonical set of every tool the server exposes. Keep this in sync with
+  // src/index.ts — the tests below assert the exposed set matches EXACTLY, so a
+  // tool added or removed without updating this list will fail CI (prevents the
+  // src/build/README/test drift that previously shipped a stale 18-tool build).
+  const EXPECTED_TOOL_NAMES = [
+    "vibemap_list_projects",
+    "vibemap_create_project",
+    "vibemap_get_project_context",
+    "vibemap_get_atomic_blueprint",
+    "vibemap_get_page_source",
+    "vibemap_list_features",
+    "vibemap_create_feature",
+    "vibemap_update_feature",
+    "vibemap_list_user_stories",
+    "vibemap_create_user_story",
+    "vibemap_update_user_story",
+    "vibemap_list_acceptance_criteria",
+    "vibemap_create_acceptance_criterion",
+    "vibemap_update_acceptance_criterion",
+    "vibemap_update_kanban_status",
+    "vibemap_get_kanban_board",
+    "vibemap_get_next_ready_criterion",
+    "vibemap_claim_criterion",
+    "vibemap_report_progress",
+    "vibemap_submit_for_review",
+    "vibemap_resolve_review",
+    "vibemap_block_criterion",
+    "vibemap_unblock_criterion",
+    "vibemap_list_kanban_events",
+    "vibemap_scan_codebase",
+    "vibemap_analyze_codebase",
+    "vibemap_get_generation_status",
+  ];
+
   describe("handleListTools", () => {
-    it("returns 19 vibemap_ prefixed tools", async () => {
+    it("returns every vibemap_ prefixed tool", async () => {
       const result = await handleListTools();
-      expect(result.tools).toHaveLength(19);
+      expect(result.tools).toHaveLength(EXPECTED_TOOL_NAMES.length);
       for (const tool of result.tools) {
         expect(tool.name).toMatch(/^vibemap_/);
       }
@@ -105,30 +139,10 @@ describe("MCP Tools", () => {
       }
     });
 
-    it("all 15 expected tool names are present", async () => {
+    it("exposes exactly the expected tool set (no missing, no extras)", async () => {
       const result = await handleListTools();
-      const names = result.tools.map((t: { name: string }) => t.name);
-      const expected = [
-        "vibemap_list_projects",
-        "vibemap_get_project_context",
-        "vibemap_get_page_source",
-        "vibemap_list_features",
-        "vibemap_create_feature",
-        "vibemap_update_feature",
-        "vibemap_list_user_stories",
-        "vibemap_create_user_story",
-        "vibemap_update_user_story",
-        "vibemap_list_acceptance_criteria",
-        "vibemap_update_acceptance_criterion",
-        "vibemap_update_kanban_status",
-        "vibemap_get_kanban_board",
-        "vibemap_scan_codebase",
-        "vibemap_analyze_codebase",
-        "vibemap_get_generation_status",
-      ];
-      for (const name of expected) {
-        expect(names).toContain(name);
-      }
+      const names = result.tools.map((t: { name: string }) => t.name).sort();
+      expect(names).toEqual([...EXPECTED_TOOL_NAMES].sort());
     });
   });
 

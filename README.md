@@ -85,24 +85,61 @@ Same format as Cursor. Add to your Windsurf MCP settings file and restart.
 
 ## Tools
 
-The server exposes **17 tools** via the `vibemap_` prefix:
+The server exposes **27 tools** via the `vibemap_` prefix.
+
+**Projects & context**
 
 | Tool | Description |
 |---|---|
 | `vibemap_list_projects` | List all your projects |
 | `vibemap_create_project` | Create a new project (use before `analyze_codebase`) |
 | `vibemap_get_project_context` | Load full project specs into agent context |
+| `vibemap_get_atomic_blueprint` | Get the code-shaped atomic blueprint for LLM generation |
+| `vibemap_get_page_source` | Retrieve a page and its section source code |
+
+**Features**
+
+| Tool | Description |
+|---|---|
 | `vibemap_list_features` | List features with filtering |
 | `vibemap_create_feature` | Create a new feature |
 | `vibemap_update_feature` | Update feature fields or status (validates transitions) |
+
+**User stories**
+
+| Tool | Description |
+|---|---|
 | `vibemap_list_user_stories` | List stories by project or feature |
 | `vibemap_create_user_story` | Create a user story |
 | `vibemap_update_user_story` | Update story fields or status (validates transitions) |
+
+**Acceptance criteria**
+
+| Tool | Description |
+|---|---|
 | `vibemap_list_acceptance_criteria` | Fetch BDD criteria |
 | `vibemap_create_acceptance_criterion` | Create a BDD acceptance criterion |
 | `vibemap_update_acceptance_criterion` | Update or mark criteria passed/failed (validates transitions) |
-| `vibemap_update_kanban_status` | Advance kanban status (with transition validation) |
-| `vibemap_get_kanban_board` | Get real-time board view |
+
+**Kanban — board & agentic lifecycle**
+
+| Tool | Description |
+|---|---|
+| `vibemap_get_kanban_board` | Get a real-time board view |
+| `vibemap_get_next_ready_criterion` | Get the highest-priority criterion ready to work on |
+| `vibemap_claim_criterion` | Claim a criterion (`ready` → `in_progress`) |
+| `vibemap_report_progress` | Append a progress event to a criterion |
+| `vibemap_submit_for_review` | Submit a criterion for review (→ `review_pending`) |
+| `vibemap_resolve_review` | Resolve a review (`passed` / `failed`) |
+| `vibemap_block_criterion` | Block a criterion with a category and reason |
+| `vibemap_unblock_criterion` | Unblock a criterion with a resolution |
+| `vibemap_list_kanban_events` | Kanban transition history (for incremental sync) |
+| `vibemap_update_kanban_status` | ⚠️ Deprecated — use the lifecycle tools above |
+
+**Codebase**
+
+| Tool | Description |
+|---|---|
 | `vibemap_scan_codebase` | Walk a local directory |
 | `vibemap_analyze_codebase` | Reverse-engineer a codebase into VibeMap assets |
 | `vibemap_get_generation_status` | Poll AI generation task status |
