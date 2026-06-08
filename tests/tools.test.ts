@@ -11,26 +11,28 @@ process.env.VIBEMAP_API_KEY = "test-key";
 
 vi.mock("../src/vibe-client", () => {
   return {
-    VibeMapClient: vi.fn().mockImplementation(() => ({
-      listProjects: vi.fn(),
-      getProject: vi.fn(),
-      createProject: vi.fn(),
-      getPageWithSections: vi.fn(),
-      listFeatures: vi.fn(),
-      getFeature: vi.fn(),
-      createFeature: vi.fn(),
-      updateFeature: vi.fn(),
-      listUserStories: vi.fn(),
-      getUserStory: vi.fn(),
-      createUserStory: vi.fn(),
-      updateUserStory: vi.fn(),
-      listAcceptanceCriteria: vi.fn(),
-      getCriterion: vi.fn(),
-      createAcceptanceCriterion: vi.fn(),
-      updateAcceptanceCriterion: vi.fn(),
-      submitTask: vi.fn(),
-      getTaskStatus: vi.fn(),
-    })),
+    VibeMapClient: vi.fn().mockImplementation(function () {
+      return {
+        listProjects: vi.fn(),
+        getProject: vi.fn(),
+        createProject: vi.fn(),
+        getPageWithSections: vi.fn(),
+        listFeatures: vi.fn(),
+        getFeature: vi.fn(),
+        createFeature: vi.fn(),
+        updateFeature: vi.fn(),
+        listUserStories: vi.fn(),
+        getUserStory: vi.fn(),
+        createUserStory: vi.fn(),
+        updateUserStory: vi.fn(),
+        listAcceptanceCriteria: vi.fn(),
+        getCriterion: vi.fn(),
+        createAcceptanceCriterion: vi.fn(),
+        updateAcceptanceCriterion: vi.fn(),
+        submitTask: vi.fn(),
+        getTaskStatus: vi.fn(),
+      };
+    }),
   };
 });
 
@@ -64,7 +66,11 @@ const stableMockClient = {
   getTaskStatus: vi.fn(),
 };
 
-vi.mocked(VibeMapClient).mockImplementation(() => stableMockClient as any);
+// Regular function (not an arrow): vitest 4 invokes mock implementations with
+// `new` for class mocks, and arrow functions can't be used as constructors.
+vi.mocked(VibeMapClient).mockImplementation(function () {
+  return stableMockClient as any;
+});
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 
