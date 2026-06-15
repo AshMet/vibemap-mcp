@@ -9,7 +9,14 @@ export interface VibeConfig {
 
 export type FeatureStatus = "draft" | "open" | "in_progress" | "completed";
 export type StoryStatus = "draft" | "has_criteria" | "open" | "in_progress" | "completed";
-export type CriterionStatus = "draft" | "pending" | "passed" | "failed";
+export type CriterionStatus =
+  | "draft"
+  | "ready"
+  | "in_progress"
+  | "in_review"
+  | "passed"
+  | "failed"
+  | "blocked";
 export type KanbanEntityType = "feature" | "story" | "criterion";
 
 export type FeaturePriority = "high" | "medium" | "low";

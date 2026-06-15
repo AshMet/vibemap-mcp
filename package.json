@@ -1,6 +1,6 @@
 {
   "name": "@vibemap.ai/mcp-server",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "VibeMap MCP Server — connect your IDE agent to VibeMap via the Model Context Protocol",
   "main": "build/index.js",
   "type": "module",

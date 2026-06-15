@@ -29,7 +29,15 @@ const ProjectIdSchema = z.object({
 // Single source of truth for status enums — types in vibe-client.ts mirror these
 const FEATURE_STATUSES = ["draft", "open", "in_progress", "completed"] as const;
 const STORY_STATUSES = ["draft", "has_criteria", "open", "in_progress", "completed"] as const;
-const CRITERION_STATUSES = ["draft", "pending", "passed", "failed"] as const;
+const CRITERION_STATUSES = [
+  "draft",
+  "ready",
+  "in_progress",
+  "in_review",
+  "passed",
+  "failed",
+  "blocked",
+] as const;
 
 const FeatureStatusEnum = z.enum(FEATURE_STATUSES);
 const StoryStatusEnum = z.enum(STORY_STATUSES);
@@ -290,11 +298,17 @@ const STORY_TRANSITIONS: Record<StoryStatus, StoryStatus[]> = {
   completed: ["in_progress"],
 };
 
+// Canonical lifecycle, mirroring the DB enum + lib/kanban/transitions.ts
+// criterionRules (actor gating is enforced server-side; this is the client-side
+// shape guard). 'passed' is terminal.
 const CRITERION_TRANSITIONS: Record<CriterionStatus, CriterionStatus[]> = {
-  draft: ["pending"],
-  pending: ["passed", "failed", "draft"],
-  passed: ["pending"],
-  failed: ["pending"],
+  draft: ["ready"],
+  ready: ["in_progress", "blocked"],
+  in_progress: ["in_review", "ready", "blocked"],
+  in_review: ["passed", "failed", "blocked"],
+  passed: [],
+  failed: ["ready"],
+  blocked: ["ready", "in_progress", "in_review"],
 };
 
 function validateKanbanTransition(

@@ -656,7 +656,7 @@ describe("MCP Tools", () => {
   // ── vibemap_update_acceptance_criterion ──────────────────────────────────────
   describe("vibemap_update_acceptance_criterion", () => {
     it("marks a criterion as passed", async () => {
-      stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "pending" });
+      stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "in_review" });
       stableMockClient.updateAcceptanceCriterion.mockResolvedValue({
         id: "ac1",
         status: "passed",
@@ -678,7 +678,7 @@ describe("MCP Tools", () => {
     });
 
     it("marks a criterion as failed", async () => {
-      stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "pending" });
+      stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "in_review" });
       stableMockClient.updateAcceptanceCriterion.mockResolvedValue({
         id: "ac1",
         status: "failed",
@@ -876,8 +876,8 @@ describe("MCP Tools", () => {
       expect(result.content[0].text).toContain("Invalid transition");
     });
 
-    it("transitions a criterion from pending to passed", async () => {
-      stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "pending" });
+    it("transitions a criterion from in_review to passed", async () => {
+      stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "in_review" });
       stableMockClient.updateAcceptanceCriterion.mockResolvedValue({ id: "ac1", status: "passed" });
 
       const result = await handleCallTool(
@@ -893,8 +893,8 @@ describe("MCP Tools", () => {
       expect(data.newStatus).toBe("passed");
     });
 
-    it("transitions a criterion from pending to failed", async () => {
-      stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "pending" });
+    it("transitions a criterion from in_review to failed", async () => {
+      stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "in_review" });
       stableMockClient.updateAcceptanceCriterion.mockResolvedValue({ id: "ac1", status: "failed" });
 
       const result = await handleCallTool(
@@ -910,18 +910,18 @@ describe("MCP Tools", () => {
       expect(data.newStatus).toBe("failed");
     });
 
-    it("transitions a criterion from passed back to pending (reopen)", async () => {
-      stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "passed" });
+    it("transitions a criterion from failed back to ready (reopen)", async () => {
+      stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "failed" });
       stableMockClient.updateAcceptanceCriterion.mockResolvedValue({
         id: "ac1",
-        status: "pending",
+        status: "ready",
       });
 
       const result = await handleCallTool(
         makeRequest("vibemap_update_kanban_status", {
           entityType: "criterion",
           entityId: "ac1",
-          newStatus: "pending",
+          newStatus: "ready",
         })
       );
 
