@@ -434,7 +434,10 @@ export function resetVibeClient() {
 const getVibeClient = () => {
   if (_vibeClient) return _vibeClient;
   const apiKey = process.env.VIBEMAP_API_KEY;
-  const baseUrl = process.env.VIBEMAP_BASE_URL || "http://localhost:3000";
+  // Production-first default: IDE users following the docs only set
+  // VIBEMAP_API_KEY. Local development against a dev server sets
+  // VIBEMAP_BASE_URL=http://localhost:3000 explicitly.
+  const baseUrl = process.env.VIBEMAP_BASE_URL || "https://vibemap.ai";
   if (!apiKey) {
     throw new McpError(ErrorCode.InternalError, "VIBEMAP_API_KEY environment variable is required");
   }
