@@ -1,0 +1,6 @@
+# mcp-server installs independently (own lockfile, own publish cycle). This
+# file stops pnpm from walking up to the repo root workspace, which would
+# otherwise hoist its deps into the root node_modules (breaking `pnpm build`
+# here) and leak root-only config like patchedDependencies into its installs.
+packages:
+  - '.'
