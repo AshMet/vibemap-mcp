@@ -529,7 +529,7 @@ export const TOOL_DEFINITIONS: Tool[] = [
   {
     name: "vibemap_analyze_codebase",
     description:
-      "Scan a local codebase and submit it to VibeMap for AI-powered reverse engineering. VibeMap will analyze the code structure and key file contents to automatically generate features, user stories, and acceptance criteria. Returns a sessionId to poll with vibemap_get_generation_status.",
+      "Scan a local codebase and submit it to VibeMap for AI-powered reverse engineering. The server-side generation persists FEATURES from the code digest. It does NOT persist user stories or acceptance criteria — after the features task completes (poll vibemap_get_generation_status), create those yourself with vibemap_create_user_story and vibemap_create_acceptance_criterion, using your full codebase access for accuracy. Returns a sessionId to poll.",
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     inputSchema: {
       type: "object",

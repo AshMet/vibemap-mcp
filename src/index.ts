@@ -1094,12 +1094,11 @@ ${digest.tree}
 ${keyFilesText}
 
 ## Instructions
-Based on the above, please:
-1. Identify the main features and capabilities this codebase implements
-2. Generate user stories for each feature (As a [role], I want to [action], so that [benefit])
-3. Create acceptance criteria in BDD format (Given/When/Then)
-4. Map out the database schema if visible
-5. Identify user personas based on the codebase's use cases
+Identify the main features and capabilities this codebase implements. For each
+feature provide: name, description (what it does and for whom, grounded in the
+actual code), category, priority, complexity, effort, and business value.
+Cover every user-facing capability and significant backend subsystem you can
+see evidence for — do not invent features the code does not support.
 `.trim();
 
         const task = await client.submitTask({
@@ -1118,7 +1117,7 @@ Based on the above, please:
                 {
                   success: true,
                   message:
-                    "Codebase submitted to VibeMap for AI analysis. Poll vibemap_get_generation_status with the sessionId.",
+                    "Codebase submitted to VibeMap for AI feature extraction. Poll vibemap_get_generation_status with the sessionId. When it completes, features will exist in the project — then create user stories (vibemap_create_user_story) and acceptance criteria (vibemap_create_acceptance_criterion) for each feature using your direct codebase knowledge, or run those generations in the VibeMap app.",
                   sessionId: task.sessionId,
                   projectId: parsed.projectId,
                   localPath: parsed.localPath,
