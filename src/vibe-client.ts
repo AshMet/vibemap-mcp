@@ -205,6 +205,23 @@ export class VibeMapClient {
     );
   }
 
+  async submitCodeMap(
+    projectId: string,
+    map: Record<string, unknown>,
+    anchor?: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>("/api/mcp/code-map", {
+      method: "POST",
+      body: JSON.stringify({ projectId, map, anchor }),
+    });
+  }
+
+  async getCodeMap(projectId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      `/api/mcp/code-map${this.buildQuery({ projectId })}`
+    );
+  }
+
   async listChangesets(
     projectId: string,
     opts: { limit?: number; includeOps?: boolean } = {}

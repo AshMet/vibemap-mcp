@@ -235,6 +235,22 @@ const GetGenerationStatusSchema = z.object({
     .describe("Session ID returned by vibemap_analyze_codebase"),
 });
 
+// Deep validation lives server-side (lib/code-map/schema.ts CodeMapSchema);
+// the MCP layer stays permissive so rich error messages come back from the API.
+const SubmitCodeMapSchema = z.object({
+  projectId: z.string().min(1).describe("VibeMap project id"),
+  map: z.object({
+    nodes: z.array(z.record(z.string(), z.unknown())),
+    edges: z.array(z.record(z.string(), z.unknown())),
+    stats: z.record(z.string(), z.unknown()).optional(),
+  }),
+  anchor: z.record(z.string(), z.unknown()).optional(),
+});
+
+const GetCodeMapSchema = z.object({
+  projectId: z.string().min(1).describe("VibeMap project id"),
+});
+
 // ── Kanban Tracker (typed transitions) schemas ──────────────────────────────
 
 const GetNextReadyCriterionSchema = ProjectIdSchema;
@@ -1130,6 +1146,22 @@ see evidence for — do not invent features the code does not support.
             },
           ],
         };
+      }
+
+      // ── vibemap_submit_code_map ────────────────────────────────────────────
+      case "vibemap_submit_code_map": {
+        const parsed = SubmitCodeMapSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.submitCodeMap(parsed.projectId, parsed.map, parsed.anchor);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      // ── vibemap_get_code_map ───────────────────────────────────────────────
+      case "vibemap_get_code_map": {
+        const parsed = GetCodeMapSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.getCodeMap(parsed.projectId);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
 
       // ── vibemap_get_generation_status ──────────────────────────────────────

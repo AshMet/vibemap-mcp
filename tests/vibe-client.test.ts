@@ -312,7 +312,12 @@ describe("VibeMapClient", () => {
         },
       ],
       page_rules: [],
-      reconciliation: { findings: [], high_confidence: 0, low_confidence: 0, safe_to_auto_apply: 0 },
+      reconciliation: {
+        findings: [],
+        high_confidence: 0,
+        low_confidence: 0,
+        safe_to_auto_apply: 0,
+      },
     };
     server.use(
       http.get(`${baseUrl}/api/mcp/access-rules`, ({ request }) => {
@@ -344,9 +349,7 @@ describe("VibeMapClient", () => {
       project_id: "proj-1",
       limit: 10,
       count: 1,
-      changesets: [
-        { id: "cs-1", sequence_number: 3, source: "mcp", op_count: 2 },
-      ],
+      changesets: [{ id: "cs-1", sequence_number: 3, source: "mcp", op_count: 2 }],
     };
     server.use(
       http.get(`${baseUrl}/api/mcp/changesets`, ({ request }) => {

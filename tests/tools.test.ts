@@ -119,6 +119,8 @@ describe("MCP Tools", () => {
     "vibemap_list_kanban_events",
     "vibemap_scan_codebase",
     "vibemap_analyze_codebase",
+    "vibemap_submit_code_map",
+    "vibemap_get_code_map",
     "vibemap_get_generation_status",
   ];
 

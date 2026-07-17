@@ -549,6 +549,47 @@ export const TOOL_DEFINITIONS: Tool[] = [
     },
   },
 
+  {
+    name: "vibemap_submit_code_map",
+    description:
+      "Submit a structural code map of the user's codebase to VibeMap (rendered on the project's Codebase tab). Build it yourself from your codebase access: one node per meaningful unit (page/route, API endpoint, data model, service, module, config), edges for imports/routes/reads/writes. Node kinds: page|api|model|service|module|config. Layers: ui|api|data|services|shared. Edge kinds: imports|routes|reads|writes. Use repo-relative paths as node ids. Max 500 nodes — aggregate small files into their module. Re-submitting replaces the project's map and resets it to draft for the user to re-confirm.",
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectId: { type: "string", description: "VibeMap project to attach the map to" },
+        map: {
+          type: "object",
+          description:
+            "{ nodes: [{id,label,kind,path,layer,summary?}], edges: [{source,target,kind}], stats?: {totalFiles,scannedAt} }",
+          properties: {
+            nodes: { type: "array" },
+            edges: { type: "array" },
+            stats: { type: "object" },
+          },
+          required: ["nodes", "edges"],
+        },
+        anchor: {
+          type: "object",
+          description: "Optional sync anchor: { commitSha?, scannedAt? } (git rev-parse HEAD)",
+          properties: { commitSha: { type: "string" }, scannedAt: { type: "string" } },
+        },
+      },
+      required: ["projectId", "map"],
+    },
+  },
+  {
+    name: "vibemap_get_code_map",
+    description:
+      "Fetch the project's current code map (status draft|confirmed, nodes/edges, sync anchor). Use before re-submitting to preserve the user's hidden-node curation where possible.",
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    inputSchema: {
+      type: "object",
+      properties: { projectId: { type: "string" } },
+      required: ["projectId"],
+    },
+  },
+
   // ── Group 7: Generation Status ─────────────────────────────────────────
   {
     name: "vibemap_get_generation_status",
