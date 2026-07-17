@@ -251,6 +251,15 @@ const GetCodeMapSchema = z.object({
   projectId: z.string().min(1).describe("VibeMap project id"),
 });
 
+const SyncChangesSchema = z.object({
+  projectId: z.string().min(1).describe("VibeMap project id"),
+  changedFiles: z
+    .array(z.string())
+    .max(2000)
+    .describe("Repo-relative paths changed since anchor.commitSha"),
+  headSha: z.string().optional().describe("Current HEAD commit sha"),
+});
+
 // ── Kanban Tracker (typed transitions) schemas ──────────────────────────────
 
 const GetNextReadyCriterionSchema = ProjectIdSchema;
@@ -1161,6 +1170,18 @@ see evidence for — do not invent features the code does not support.
         const parsed = GetCodeMapSchema.parse(args);
         const client = getVibeClient();
         const result = await client.getCodeMap(parsed.projectId);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      // ── vibemap_sync_changes ───────────────────────────────────────────────
+      case "vibemap_sync_changes": {
+        const parsed = SyncChangesSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.reportDriftChanges(
+          parsed.projectId,
+          parsed.changedFiles,
+          parsed.headSha
+        );
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
 

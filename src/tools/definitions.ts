@@ -581,12 +581,31 @@ export const TOOL_DEFINITIONS: Tool[] = [
   {
     name: "vibemap_get_code_map",
     description:
-      "Fetch the project's current code map (status draft|confirmed, nodes/edges, sync anchor). Use before re-submitting to preserve the user's hidden-node curation where possible.",
+      "Fetch the project's current code map (status draft|confirmed, nodes/edges, sync anchor incl. any drift report). Use before re-submitting to preserve the user's hidden-node curation where possible.",
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     inputSchema: {
       type: "object",
       properties: { projectId: { type: "string" } },
       required: ["projectId"],
+    },
+  },
+  {
+    name: "vibemap_sync_changes",
+    description:
+      "Report codebase changes since the last sync so VibeMap can flag spec drift. Workflow: 1) call vibemap_get_code_map and read anchor.commitSha; 2) run `git diff --name-only <commitSha>..HEAD` (plus untracked files from `git status --porcelain`); 3) call this tool with the changed paths and your current HEAD sha. The response lists affected map units and features — update the stale specs with vibemap_update_feature / vibemap_update_user_story / vibemap_update_acceptance_criterion (all changeset-audited), then re-submit the code map with vibemap_submit_code_map to clear the drift.",
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectId: { type: "string", description: "VibeMap project id" },
+        changedFiles: {
+          type: "array",
+          items: { type: "string" },
+          description: "Repo-relative paths changed since anchor.commitSha (max 2000)",
+        },
+        headSha: { type: "string", description: "Current HEAD commit sha (git rev-parse HEAD)" },
+      },
+      required: ["projectId", "changedFiles"],
     },
   },
 

@@ -222,6 +222,17 @@ export class VibeMapClient {
     );
   }
 
+  async reportDriftChanges(
+    projectId: string,
+    changedFiles: string[],
+    headSha?: string
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>("/api/mcp/code-map", {
+      method: "PATCH",
+      body: JSON.stringify({ projectId, action: "report_drift", changedFiles, headSha }),
+    });
+  }
+
   async listChangesets(
     projectId: string,
     opts: { limit?: number; includeOps?: boolean } = {}

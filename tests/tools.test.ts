@@ -121,6 +121,7 @@ describe("MCP Tools", () => {
     "vibemap_analyze_codebase",
     "vibemap_submit_code_map",
     "vibemap_get_code_map",
+    "vibemap_sync_changes",
     "vibemap_get_generation_status",
   ];
 
