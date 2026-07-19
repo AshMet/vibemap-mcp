@@ -29,7 +29,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/vibemap/vibemap.git"
+    "url": "git+https://github.com/AshMet/vibemap-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/AshMet/vibemap-mcp/issues"
   },
   "homepage": "https://vibemap.ai/docs/developer-docs/mcp-server/introduction",
   "scripts": {
