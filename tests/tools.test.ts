@@ -1,6 +1,12 @@
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { handleCallTool, handleListTools, resetVibeClient } from "../src/index";
+import {
+  handleCallTool,
+  handleGetPrompt,
+  handleListPrompts,
+  handleListTools,
+  resetVibeClient,
+} from "../src/index";
 import { buildCodebaseDigest, walkDir } from "../src/utils";
 import { VibeMapClient } from "../src/vibe-client";
 
@@ -18,6 +24,7 @@ vi.mock("../src/vibe-client", () => {
         createProject: vi.fn(),
         createPersona: vi.fn(),
         createPage: vi.fn(),
+        getPrompt: vi.fn(),
         getPageWithSections: vi.fn(),
         listFeatures: vi.fn(),
         getFeature: vi.fn(),
@@ -57,6 +64,7 @@ const stableMockClient = {
   createProject: vi.fn(),
   createPersona: vi.fn(),
   createPage: vi.fn(),
+  getPrompt: vi.fn(),
   getPageWithSections: vi.fn(),
   listFeatures: vi.fn(),
   getFeature: vi.fn(),
@@ -164,6 +172,61 @@ describe("MCP Tools", () => {
       const result = await handleListTools();
       const names = result.tools.map((t: { name: string }) => t.name).sort();
       expect(names).toEqual([...EXPECTED_TOOL_NAMES].sort());
+    });
+  });
+
+  // ── Prompts (server-expanded slash commands) ─────────────────────────────────
+  describe("prompts", () => {
+    const EXPECTED_PROMPTS = [
+      "author_spec",
+      "author_idea",
+      "sync_changes",
+      "code_map",
+      "load_context",
+      "kanban",
+    ];
+
+    it("lists the expected prompt set with argument metadata", async () => {
+      const { prompts } = await handleListPrompts();
+      expect(prompts.map((p) => p.name).sort()).toEqual([...EXPECTED_PROMPTS].sort());
+      const authorSpec = prompts.find((p) => p.name === "author_spec");
+      expect(authorSpec?.arguments?.some((a) => a.name === "projectId" && a.required)).toBe(true);
+    });
+
+    it("expands a prompt by proxying to the server and wraps it as a user message", async () => {
+      stableMockClient.getPrompt.mockResolvedValue("EXPANDED PROMPT TEXT");
+      const result = await handleGetPrompt(
+        makeRequest("author_idea", { projectId: "proj-1" }) as any
+      );
+      expect(stableMockClient.getPrompt).toHaveBeenCalledWith("author_idea", {
+        projectId: "proj-1",
+        localPath: undefined,
+      });
+      expect(result.messages[0].role).toBe("user");
+      expect(result.messages[0].content).toEqual({ type: "text", text: "EXPANDED PROMPT TEXT" });
+    });
+
+    it("passes an optional localPath through for code-first prompts", async () => {
+      stableMockClient.getPrompt.mockResolvedValue("x");
+      await handleGetPrompt(
+        makeRequest("author_spec", { projectId: "proj-1", localPath: "/home/me/app" }) as any
+      );
+      expect(stableMockClient.getPrompt).toHaveBeenCalledWith("author_spec", {
+        projectId: "proj-1",
+        localPath: "/home/me/app",
+      });
+    });
+
+    it("throws on an unknown prompt", async () => {
+      await expect(
+        handleGetPrompt(makeRequest("not_a_prompt", { projectId: "proj-1" }) as any)
+      ).rejects.toThrow(McpError);
+    });
+
+    it("throws when projectId is missing", async () => {
+      await expect(
+        handleGetPrompt(makeRequest("author_idea", {}) as any)
+      ).rejects.toThrow(McpError);
     });
   });
 

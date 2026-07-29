@@ -5,11 +5,15 @@ import {
   type CallToolRequest,
   CallToolRequestSchema,
   ErrorCode,
+  type GetPromptRequest,
+  GetPromptRequestSchema,
+  ListPromptsRequestSchema,
   ListToolsRequestSchema,
   McpError,
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { formatPageSourceResponse, type PageRecord } from "./page-source.js";
+import { PROMPT_DEFINITIONS, PROMPT_NAMES } from "./prompts/definitions.js";
 import { TOOL_DEFINITIONS } from "./tools/definitions.js";
 import { buildCodebaseDigest, camelToSnakeDeep, walkDir } from "./utils.js";
 import {
@@ -531,10 +535,10 @@ export const server = new Server(
     name: "vibemap-mcp-server",
     // Keep in sync with package.json — this is the version the server advertises
     // to MCP clients in the initialize handshake.
-    version: "2.6.0",
+    version: "2.7.0",
   },
   {
-    capabilities: { tools: {} },
+    capabilities: { tools: {}, prompts: {} },
   }
 );
 
@@ -563,6 +567,33 @@ const getVibeClient = () => {
 
 export async function handleListTools() {
   return { tools: TOOL_DEFINITIONS };
+}
+
+// ─── Prompt handlers (server-expanded slash commands) ─────────────────────────
+
+export async function handleListPrompts() {
+  return { prompts: PROMPT_DEFINITIONS };
+}
+
+export async function handleGetPrompt(request: GetPromptRequest) {
+  const { name, arguments: args } = request.params;
+  if (!PROMPT_NAMES.has(name)) {
+    throw new McpError(ErrorCode.InvalidParams, `Unknown prompt: ${name}`);
+  }
+  const projectId = (args?.projectId ?? "").trim();
+  if (!projectId) {
+    throw new McpError(ErrorCode.InvalidParams, `Prompt '${name}' requires a projectId argument`);
+  }
+  const localPath = args?.localPath?.trim() || undefined;
+
+  const client = getVibeClient();
+  const text = await client.getPrompt(name, { projectId, localPath });
+
+  const def = PROMPT_DEFINITIONS.find((p) => p.name === name);
+  return {
+    description: def?.description,
+    messages: [{ role: "user" as const, content: { type: "text" as const, text } }],
+  };
 }
 
 // ─── Tool call handler ────────────────────────────────────────────────────────
@@ -1338,6 +1369,8 @@ see evidence for — do not invent features the code does not support.
 
 server.setRequestHandler(ListToolsRequestSchema, handleListTools);
 server.setRequestHandler(CallToolRequestSchema, handleCallTool);
+server.setRequestHandler(ListPromptsRequestSchema, handleListPrompts);
+server.setRequestHandler(GetPromptRequestSchema, handleGetPrompt);
 
 // ─── Entrypoint ───────────────────────────────────────────────────────────────
 
