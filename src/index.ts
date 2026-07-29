@@ -142,6 +142,57 @@ const CreatePageSchema = ProjectIdSchema.extend({
   status: z.enum(["draft", "confirmed"]).optional().default("draft"),
 });
 
+// ── Schema (spec authoring, Engine A) ────────────────────────────────────────
+//
+// The schema surface is camelCase end-to-end and mirrors VibeMap's SchemaJSON,
+// which the server persists via SchemaDatabaseService.saveSchema. Unlike the
+// persona/page tools there is NO camelToSnakeDeep conversion — the CRUD body IS
+// SchemaJSON. v1 is schema-only (tables → columns → relationships); access rules
+// stay with the existing access-rules flow.
+
+const SchemaColumnSchema = z.object({
+  name: z.string().min(1, "column name is required").describe("Column name (snake_case)"),
+  type: z.string().min(1, "column type is required").describe("Postgres type, e.g. UUID, TEXT, TIMESTAMPTZ"),
+  primaryKey: z.boolean().optional().describe("True for the table's primary key"),
+  nullable: z.boolean().optional().describe("Whether NULL is allowed (default true)"),
+  unique: z.boolean().optional().describe("Whether a UNIQUE constraint applies"),
+  default: z.string().optional().describe("SQL default expression, e.g. now(), gen_random_uuid()"),
+  description: z.string().optional(),
+  check: z.string().optional().describe("CHECK constraint expression"),
+  maxLength: z.string().optional().describe("VARCHAR/CHAR length as a string"),
+  foreignKey: z
+    .object({
+      table: z.string().min(1).describe("Referenced table name"),
+      column: z.string().min(1).describe("Referenced column (usually 'id')"),
+    })
+    .optional()
+    .describe("FK reference — the relationship is auto-derived from this"),
+});
+
+const SchemaTableSchema = z.object({
+  name: z.string().min(1, "table name is required").describe("Table name (snake_case, plural)"),
+  description: z.string().optional().default(""),
+  columns: z.array(SchemaColumnSchema).describe("Ordered column list; include an 'id' primary key"),
+});
+
+const SchemaRelationshipSchema = z.object({
+  sourceTable: z.string().min(1),
+  sourceColumn: z.string().min(1),
+  targetTable: z.string().min(1),
+  targetColumn: z.string().min(1),
+  sourceCardinality: z.enum(["1", "N"]),
+  targetCardinality: z.enum(["1", "N"]),
+  onDelete: z.string().optional().describe("ON DELETE action, e.g. CASCADE, SET NULL"),
+});
+
+const CreateSchemaSchema = ProjectIdSchema.extend({
+  tables: z.array(SchemaTableSchema).min(1, "at least one table is required"),
+  relationships: z
+    .array(SchemaRelationshipSchema)
+    .optional()
+    .describe("Optional — FKs on columns auto-derive relationships, so this can be omitted"),
+});
+
 const ListFeaturesSchema = ProjectIdSchema.extend({
   status: FeatureStatusEnum.optional().describe("Filter by status"),
   priority: z.enum(["high", "medium", "low"]).optional().describe("Filter by priority"),
@@ -535,7 +586,7 @@ export const server = new Server(
     name: "vibemap-mcp-server",
     // Keep in sync with package.json — this is the version the server advertises
     // to MCP clients in the initialize handshake.
-    version: "2.7.0",
+    version: "2.8.0",
   },
   {
     capabilities: { tools: {}, prompts: {} },
@@ -661,6 +712,21 @@ export async function handleCallTool(request: CallToolRequest) {
           status: parsed.status,
         });
         const clean = stripFields(page, GLOBAL_STRIP);
+        return { content: [{ type: "text", text: JSON.stringify(clean, null, 2) }] };
+      }
+
+      // ── vibemap_create_schema ──────────────────────────────────────────────
+      case "vibemap_create_schema": {
+        const parsed = CreateSchemaSchema.parse(args);
+        const client = getVibeClient();
+        // Body IS SchemaJSON (camelCase) — no case conversion. The server keyed-
+        // reconciles, so re-running the same schema is idempotent.
+        const result = await client.createSchema({
+          projectId: parsed.projectId,
+          tables: parsed.tables,
+          relationships: parsed.relationships,
+        });
+        const clean = stripFields(result, GLOBAL_STRIP);
         return { content: [{ type: "text", text: JSON.stringify(clean, null, 2) }] };
       }
 

@@ -421,6 +421,49 @@ describe("VibeMapClient", () => {
     expect((result as any).id).toBe("pg-new");
   });
 
+  // ── Schema ─────────────────────────────────────────────────────────────────────
+
+  it("creates a schema via POST with a camelCase body", async () => {
+    let capturedBody: any;
+    server.use(
+      http.post(`${baseUrl}/api/crud/schema`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ tables: [{ id: "t1", name: "users" }], meta: { tables: 1 } });
+      })
+    );
+
+    const result = await client.createSchema({
+      projectId: "proj-1",
+      tables: [
+        {
+          name: "users",
+          columns: [
+            { name: "id", type: "UUID", primaryKey: true },
+            { name: "org_id", type: "UUID", foreignKey: { table: "orgs", column: "id" } },
+          ],
+        },
+      ],
+    });
+
+    expect((result as any).tables).toHaveLength(1);
+    expect(capturedBody.projectId).toBe("proj-1");
+    // camelCase is preserved on the wire — no snake_case conversion.
+    expect(capturedBody.tables[0].columns[0].primaryKey).toBe(true);
+    expect(capturedBody.tables[0].columns[1].foreignKey).toEqual({ table: "orgs", column: "id" });
+  });
+
+  it("propagates server errors from the schema route", async () => {
+    server.use(
+      http.post(`${baseUrl}/api/crud/schema`, () => {
+        return HttpResponse.json({ error: "Project not found or access denied" }, { status: 404 });
+      })
+    );
+
+    await expect(
+      client.createSchema({ projectId: "missing", tables: [{ name: "x", columns: [] }] })
+    ).rejects.toThrow("Project not found or access denied");
+  });
+
   // ── Prompts ──────────────────────────────────────────────────────────────────
 
   it("fetches an expanded prompt and returns its text", async () => {

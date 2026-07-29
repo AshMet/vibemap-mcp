@@ -230,6 +230,89 @@ export const TOOL_DEFINITIONS: Tool[] = [
       required: ["projectId", "name"],
     },
   },
+  {
+    name: "vibemap_create_schema",
+    description:
+      "Persist a VibeMap project's database schema — tables, columns, and relationships — in one call. Author this LAST, after the rest of the spec exists, grounded on the spec (idea-first) or the codebase's models/migrations (code-first). One table per domain entity; give every table an `id` primary key and created_at/updated_at; set real Postgres column types + constraints; express foreign keys via each column's `foreignKey` (relationships auto-derive from these, so `relationships` is optional); add junction tables for many-to-many. All params are camelCase (this IS VibeMap's SchemaJSON). Existing schema is visible via vibemap_get_project_context (dbSchema) — the server keyed-reconciles, so re-running is safe. Table/page access rules are handled by the separate access-rules flow, not here.",
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectId: { type: "string" },
+        tables: {
+          type: "array",
+          description: "One entry per table (snake_case, plural names).",
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "Table name (snake_case, plural)" },
+              description: { type: "string", description: "What this table stores" },
+              columns: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string", description: "Column name (snake_case)" },
+                    type: {
+                      type: "string",
+                      description: "Postgres type, e.g. UUID, TEXT, INTEGER, TIMESTAMPTZ, BOOLEAN",
+                    },
+                    primaryKey: { type: "boolean" },
+                    nullable: { type: "boolean" },
+                    unique: { type: "boolean" },
+                    default: {
+                      type: "string",
+                      description: "SQL default, e.g. gen_random_uuid(), now()",
+                    },
+                    description: { type: "string" },
+                    check: { type: "string", description: "CHECK constraint expression" },
+                    maxLength: { type: "string", description: "VARCHAR/CHAR length" },
+                    foreignKey: {
+                      type: "object",
+                      description: "FK reference — relationship auto-derives from this",
+                      properties: {
+                        table: { type: "string" },
+                        column: { type: "string" },
+                      },
+                      required: ["table", "column"],
+                    },
+                  },
+                  required: ["name", "type"],
+                },
+              },
+            },
+            required: ["name", "columns"],
+          },
+        },
+        relationships: {
+          type: "array",
+          description:
+            "Optional — foreign keys on columns auto-derive relationships. Provide only for relationships not expressed by a column FK.",
+          items: {
+            type: "object",
+            properties: {
+              sourceTable: { type: "string" },
+              sourceColumn: { type: "string" },
+              targetTable: { type: "string" },
+              targetColumn: { type: "string" },
+              sourceCardinality: { type: "string", enum: ["1", "N"] },
+              targetCardinality: { type: "string", enum: ["1", "N"] },
+              onDelete: { type: "string", description: "e.g. CASCADE, SET NULL" },
+            },
+            required: [
+              "sourceTable",
+              "sourceColumn",
+              "targetTable",
+              "targetColumn",
+              "sourceCardinality",
+              "targetCardinality",
+            ],
+          },
+        },
+      },
+      required: ["projectId", "tables"],
+    },
+  },
 
   // ── Group 2: Features ──────────────────────────────────────────────────
   {
