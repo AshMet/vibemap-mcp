@@ -16,6 +16,8 @@ vi.mock("../src/vibe-client", () => {
         listProjects: vi.fn(),
         getProject: vi.fn(),
         createProject: vi.fn(),
+        createPersona: vi.fn(),
+        createPage: vi.fn(),
         getPageWithSections: vi.fn(),
         listFeatures: vi.fn(),
         getFeature: vi.fn(),
@@ -36,8 +38,12 @@ vi.mock("../src/vibe-client", () => {
   };
 });
 
-vi.mock("../src/utils", () => {
+// Keep the real case-conversion helpers (the create_persona handler relies on
+// camelToSnakeDeep); only the filesystem-touching functions are mocked.
+vi.mock("../src/utils", async (importActual) => {
+  const actual = await importActual<typeof import("../src/utils")>();
   return {
+    ...actual,
     walkDir: vi.fn(),
     buildCodebaseDigest: vi.fn(),
   };
@@ -49,6 +55,8 @@ const stableMockClient = {
   listProjects: vi.fn(),
   getProject: vi.fn(),
   createProject: vi.fn(),
+  createPersona: vi.fn(),
+  createPage: vi.fn(),
   getPageWithSections: vi.fn(),
   listFeatures: vi.fn(),
   getFeature: vi.fn(),
@@ -98,6 +106,8 @@ describe("MCP Tools", () => {
     "vibemap_list_access_rules",
     "vibemap_list_changesets",
     "vibemap_get_page_source",
+    "vibemap_create_persona",
+    "vibemap_create_page",
     "vibemap_list_features",
     "vibemap_create_feature",
     "vibemap_update_feature",
@@ -183,6 +193,95 @@ describe("MCP Tools", () => {
       const result = await handleCallTool(makeRequest("vibemap_list_projects"));
       const data = JSON.parse(result.content[0].text);
       expect(data).toEqual([]);
+    });
+  });
+
+  // ── vibemap_create_persona ───────────────────────────────────────────────────
+  describe("vibemap_create_persona", () => {
+    it("creates a persona and deep-converts camelCase args to snake_case", async () => {
+      stableMockClient.createPersona.mockResolvedValue({ id: "p-new", name: "Alex" });
+
+      const result = await handleCallTool(
+        makeRequest("vibemap_create_persona", {
+          projectId: "proj-1",
+          name: "Alex",
+          userRole: "Admin",
+          avatarDescription: "30s, laptop",
+          goalsAndNeeds: { primaryObjectives: ["Ship fast"], problemsToSolve: ["Manual work"] },
+          painPoints: { currentChallenges: ["Slow tools"] },
+          psychographics: { values: ["speed", "quality"] },
+        })
+      );
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.id).toBe("p-new");
+
+      const body = stableMockClient.createPersona.mock.calls[0][0];
+      // project_id set from projectId; nested keys converted; string values kept.
+      expect(body.project_id).toBe("proj-1");
+      expect(body.user_role).toBe("Admin");
+      expect(body.avatar_description).toBe("30s, laptop");
+      expect(body.goals_and_needs).toEqual({
+        primary_objectives: ["Ship fast"],
+        problems_to_solve: ["Manual work"],
+      });
+      expect(body.pain_points).toEqual({ current_challenges: ["Slow tools"] });
+      expect(body.psychographics).toEqual({ values: ["speed", "quality"] });
+      // persona_data mirrors the content (feeds the embedding writer).
+      expect(body.persona_data.goals_and_needs.primary_objectives).toEqual(["Ship fast"]);
+      expect(body.persona_data.project_id).toBeUndefined();
+    });
+
+    it("throws on missing name", async () => {
+      await expect(
+        handleCallTool(makeRequest("vibemap_create_persona", { projectId: "proj-1" }))
+      ).rejects.toThrow(McpError);
+    });
+
+    it("throws on missing projectId", async () => {
+      await expect(
+        handleCallTool(makeRequest("vibemap_create_persona", { name: "Alex" }))
+      ).rejects.toThrow(McpError);
+    });
+  });
+
+  // ── vibemap_create_page ──────────────────────────────────────────────────────
+  describe("vibemap_create_page", () => {
+    it("creates a page with snake_case body", async () => {
+      stableMockClient.createPage.mockResolvedValue({ id: "pg-new", name: "Dashboard" });
+
+      const result = await handleCallTool(
+        makeRequest("vibemap_create_page", {
+          projectId: "proj-1",
+          name: "Dashboard",
+          path: "/dashboard",
+          description: "Main landing screen",
+        })
+      );
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.id).toBe("pg-new");
+      expect(stableMockClient.createPage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          project_id: "proj-1",
+          name: "Dashboard",
+          path: "/dashboard",
+          description: "Main landing screen",
+          status: "draft",
+        })
+      );
+    });
+
+    it("throws on missing name", async () => {
+      await expect(
+        handleCallTool(makeRequest("vibemap_create_page", { projectId: "proj-1" }))
+      ).rejects.toThrow(McpError);
+    });
+
+    it("throws on missing projectId", async () => {
+      await expect(
+        handleCallTool(makeRequest("vibemap_create_page", { name: "Dashboard" }))
+      ).rejects.toThrow(McpError);
     });
   });
 

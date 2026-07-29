@@ -11,7 +11,7 @@ import {
 import { z } from "zod";
 import { formatPageSourceResponse, type PageRecord } from "./page-source.js";
 import { TOOL_DEFINITIONS } from "./tools/definitions.js";
-import { buildCodebaseDigest, walkDir } from "./utils.js";
+import { buildCodebaseDigest, camelToSnakeDeep, walkDir } from "./utils.js";
 import {
   type CriterionStatus,
   type FeatureStatus,
@@ -49,6 +49,93 @@ const CreateProjectSchema = z.object({
     .string()
     .min(50, "Description should be at least 50 characters for good AI analysis")
     .max(20000),
+});
+
+// ── Personas & Pages (spec authoring) ───────────────────────────────────────
+//
+// The MCP surface is uniformly camelCase — including the nested persona blocks.
+// The handler converts to the snake_case CRUD body via camelToSnakeDeep, so the
+// authoring agent never mixes casing. Block shapes mirror what VibeMap's own
+// persona generator produces (lib/prompts/personas.ts) for engine parity.
+
+const StrArr = z.array(z.string());
+
+const CreatePersonaSchema = ProjectIdSchema.extend({
+  name: z.string().min(1, "name is required").describe("Persona's first name"),
+  userRole: z
+    .string()
+    .optional()
+    .describe("Canonical role this persona represents (e.g. 'admin', 'diver'); referenced by stories"),
+  tagline: z.string().optional().describe("Brief one-line descriptor"),
+  avatarDescription: z.string().optional().describe("Brief visual description"),
+  demographics: z
+    .object({
+      ageRange: z.string().optional(),
+      gender: z.string().optional(),
+      location: z.string().optional(),
+      education: z.string().optional(),
+      incomeLevel: z.string().optional(),
+      occupation: z.string().optional(),
+      familyStructure: z.string().optional(),
+    })
+    .partial()
+    .optional(),
+  psychographics: z
+    .object({
+      values: StrArr.optional(),
+      personalityTraits: StrArr.optional(),
+      motivations: StrArr.optional(),
+      aspirations: StrArr.optional(),
+    })
+    .partial()
+    .optional(),
+  goalsAndNeeds: z
+    .object({
+      primaryObjectives: StrArr.optional(),
+      problemsToSolve: StrArr.optional(),
+      functionalNeeds: StrArr.optional(),
+      emotionalNeeds: StrArr.optional(),
+    })
+    .partial()
+    .optional(),
+  painPoints: z
+    .object({
+      currentChallenges: StrArr.optional(),
+      barriers: StrArr.optional(),
+      skillGaps: StrArr.optional(),
+    })
+    .partial()
+    .optional(),
+  productSpecific: z
+    .object({
+      featurePriorities: StrArr.optional(),
+      primaryUseCases: StrArr.optional(),
+      technicalProficiency: z.string().optional(),
+      priceSensitivity: z.string().optional(),
+    })
+    .partial()
+    .optional(),
+  communicationPreferences: z
+    .object({
+      contentPreferences: StrArr.optional(),
+      messagingResponse: z.string().optional(),
+    })
+    .partial()
+    .optional(),
+  narrative: z
+    .object({
+      quote: z.string().optional(),
+      keyFrustrations: z.string().optional(),
+    })
+    .partial()
+    .optional(),
+});
+
+const CreatePageSchema = ProjectIdSchema.extend({
+  name: z.string().min(1, "name is required").describe("Page name (e.g. 'Dashboard')"),
+  path: z.string().optional().describe("Route path (e.g. '/dashboard')"),
+  description: z.string().optional().describe("What this page is for"),
+  status: z.enum(["draft", "confirmed"]).optional().default("draft"),
 });
 
 const ListFeaturesSchema = ProjectIdSchema.extend({
@@ -508,6 +595,39 @@ export async function handleCallTool(request: CallToolRequest) {
           status: "draft",
         });
         const clean = stripFields(project, GLOBAL_STRIP);
+        return { content: [{ type: "text", text: JSON.stringify(clean, null, 2) }] };
+      }
+
+      // ── vibemap_create_persona ─────────────────────────────────────────────
+      case "vibemap_create_persona": {
+        const parsed = CreatePersonaSchema.parse(args);
+        const client = getVibeClient();
+        const { projectId, ...contentCamel } = parsed;
+        // MCP args are camelCase; /api/crud/personas wants snake_case. Convert
+        // once, then mirror Engine B by persisting the full content as
+        // persona_data (the embedding writer indexes that column).
+        const content = camelToSnakeDeep(contentCamel) as Record<string, unknown>;
+        const persona = await client.createPersona({
+          project_id: projectId,
+          ...content,
+          persona_data: content,
+        });
+        const clean = stripFields(persona, GLOBAL_STRIP);
+        return { content: [{ type: "text", text: JSON.stringify(clean, null, 2) }] };
+      }
+
+      // ── vibemap_create_page ────────────────────────────────────────────────
+      case "vibemap_create_page": {
+        const parsed = CreatePageSchema.parse(args);
+        const client = getVibeClient();
+        const page = await client.createPage({
+          project_id: parsed.projectId,
+          name: parsed.name,
+          path: parsed.path,
+          description: parsed.description,
+          status: parsed.status,
+        });
+        const clean = stripFields(page, GLOBAL_STRIP);
         return { content: [{ type: "text", text: JSON.stringify(clean, null, 2) }] };
       }
 

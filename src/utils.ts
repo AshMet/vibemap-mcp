@@ -64,6 +64,41 @@ const KEY_FILENAMES = new Set([
 const MAX_FILE_READ_BYTES = 4000; // ~1k tokens per file
 const MAX_DIGEST_FILES = 20;
 
+// ─── Case conversion ──────────────────────────────────────────────────────────
+//
+// Repo convention: the MCP tool surface is uniformly camelCase (projectId,
+// givenCondition, userRole, …) while the `/api/crud/*` endpoints expect
+// snake_case bodies. Scalar tools map field-by-field in the handler; nested
+// payloads (personas) use `camelToSnakeDeep` so the calling agent never has to
+// mix camelCase and snake_case in a single object. This is the single
+// conversion point between the two boundaries.
+
+/** Convert one camelCase key to snake_case ("primaryObjectives" → "primary_objectives"). */
+export function camelToSnake(key: string): string {
+  return key.replace(/([A-Z])/g, (c) => `_${c.toLowerCase()}`);
+}
+
+/**
+ * Recursively convert every object KEY from camelCase to snake_case. Values are
+ * preserved verbatim — primitives (including the strings inside a `values:
+ * string[]`) are untouched, and array elements are only recursed into when they
+ * are themselves objects. Used to translate camelCase MCP tool args into the
+ * snake_case body shape the CRUD API and DB columns expect.
+ */
+export function camelToSnakeDeep<T = unknown>(input: T): T {
+  if (Array.isArray(input)) {
+    return input.map((v) => camelToSnakeDeep(v)) as unknown as T;
+  }
+  if (input !== null && typeof input === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
+      out[camelToSnake(k)] = camelToSnakeDeep(v);
+    }
+    return out as unknown as T;
+  }
+  return input;
+}
+
 export interface FileEntry {
   path: string;
   type: "file" | "dir";
