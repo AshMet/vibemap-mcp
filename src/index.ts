@@ -529,7 +529,9 @@ const AC_STRIP = [...GLOBAL_STRIP, "title", "description"];
 export const server = new Server(
   {
     name: "vibemap-mcp-server",
-    version: "2.0.0",
+    // Keep in sync with package.json — this is the version the server advertises
+    // to MCP clients in the initialize handshake.
+    version: "2.6.0",
   },
   {
     capabilities: { tools: {} },
