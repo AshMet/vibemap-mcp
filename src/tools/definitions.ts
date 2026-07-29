@@ -123,6 +123,114 @@ export const TOOL_DEFINITIONS: Tool[] = [
     },
   },
 
+  // ── Group 1b: Personas & Pages (spec authoring) ────────────────────────
+  {
+    name: "vibemap_create_persona",
+    description:
+      "Create a user persona in a VibeMap project. Personas are the cast of users the spec is written for — author them FIRST, then reference each persona's role (userRole) when writing user stories. Match the depth VibeMap's own generator produces: fill the structured blocks so the persona is rich and semantically searchable, not just a name. Existing personas are visible via vibemap_get_project_context — enrich, don't duplicate. All params are camelCase.",
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectId: { type: "string" },
+        name: { type: "string", description: "Persona's first name" },
+        userRole: {
+          type: "string",
+          description:
+            "Canonical role this persona represents (e.g. 'admin', 'diver'). User stories reference this role.",
+        },
+        tagline: { type: "string", description: "Brief one-line descriptor" },
+        avatarDescription: { type: "string", description: "Brief visual description" },
+        demographics: {
+          type: "object",
+          description: "Who they are",
+          properties: {
+            ageRange: { type: "string" },
+            gender: { type: "string" },
+            location: { type: "string" },
+            education: { type: "string" },
+            incomeLevel: { type: "string" },
+            occupation: { type: "string" },
+            familyStructure: { type: "string" },
+          },
+        },
+        psychographics: {
+          type: "object",
+          description: "What drives them",
+          properties: {
+            values: { type: "array", items: { type: "string" } },
+            personalityTraits: { type: "array", items: { type: "string" } },
+            motivations: { type: "array", items: { type: "string" } },
+            aspirations: { type: "array", items: { type: "string" } },
+          },
+        },
+        goalsAndNeeds: {
+          type: "object",
+          description: "What they are trying to achieve",
+          properties: {
+            primaryObjectives: { type: "array", items: { type: "string" } },
+            problemsToSolve: { type: "array", items: { type: "string" } },
+            functionalNeeds: { type: "array", items: { type: "string" } },
+            emotionalNeeds: { type: "array", items: { type: "string" } },
+          },
+        },
+        painPoints: {
+          type: "object",
+          description: "What frustrates or blocks them",
+          properties: {
+            currentChallenges: { type: "array", items: { type: "string" } },
+            barriers: { type: "array", items: { type: "string" } },
+            skillGaps: { type: "array", items: { type: "string" } },
+          },
+        },
+        productSpecific: {
+          type: "object",
+          description: "How they relate to this product",
+          properties: {
+            featurePriorities: { type: "array", items: { type: "string" } },
+            primaryUseCases: { type: "array", items: { type: "string" } },
+            technicalProficiency: { type: "string" },
+            priceSensitivity: { type: "string" },
+          },
+        },
+        communicationPreferences: {
+          type: "object",
+          description: "How to reach them",
+          properties: {
+            contentPreferences: { type: "array", items: { type: "string" } },
+            messagingResponse: { type: "string" },
+          },
+        },
+        narrative: {
+          type: "object",
+          description: "Their voice",
+          properties: {
+            quote: { type: "string" },
+            keyFrustrations: { type: "string" },
+          },
+        },
+      },
+      required: ["projectId", "name"],
+    },
+  },
+  {
+    name: "vibemap_create_page",
+    description:
+      "Create a page/screen in a VibeMap project's page inventory. Author pages after features, stories, and criteria to capture the app's screens and routes. Existing pages are visible via vibemap_get_project_context — enrich, don't duplicate.",
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectId: { type: "string" },
+        name: { type: "string", description: "Page name (e.g. 'Dashboard')" },
+        path: { type: "string", description: "Route path (e.g. '/dashboard')" },
+        description: { type: "string", description: "What this page is for" },
+        status: { type: "string", enum: ["draft", "confirmed"], default: "draft" },
+      },
+      required: ["projectId", "name"],
+    },
+  },
+
   // ── Group 2: Features ──────────────────────────────────────────────────
   {
     name: "vibemap_list_features",

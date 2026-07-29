@@ -379,4 +379,45 @@ describe("VibeMapClient", () => {
     expect(capturedUrl).not.toContain("limit=");
     expect(capturedUrl).not.toContain("includeOps=");
   });
+
+  // ── Personas & Pages ─────────────────────────────────────────────────────────
+
+  it("creates a persona via POST", async () => {
+    server.use(
+      http.post(`${baseUrl}/api/crud/personas`, async ({ request }) => {
+        const body = (await request.json()) as any;
+        expect(body.project_id).toBe("proj-1");
+        expect(body.name).toBe("Alex");
+        expect(body.goals_and_needs).toEqual({ primary_objectives: ["Ship fast"] });
+        return HttpResponse.json({ id: "p-new", name: "Alex" });
+      })
+    );
+
+    const result = await client.createPersona({
+      project_id: "proj-1",
+      name: "Alex",
+      goals_and_needs: { primary_objectives: ["Ship fast"] },
+    });
+    expect((result as any).id).toBe("p-new");
+  });
+
+  it("creates a page via POST", async () => {
+    server.use(
+      http.post(`${baseUrl}/api/crud/pages`, async ({ request }) => {
+        const body = (await request.json()) as any;
+        expect(body.project_id).toBe("proj-1");
+        expect(body.name).toBe("Dashboard");
+        expect(body.path).toBe("/dashboard");
+        return HttpResponse.json({ id: "pg-new", name: "Dashboard" });
+      })
+    );
+
+    const result = await client.createPage({
+      project_id: "proj-1",
+      name: "Dashboard",
+      path: "/dashboard",
+      status: "draft",
+    });
+    expect((result as any).id).toBe("pg-new");
+  });
 });

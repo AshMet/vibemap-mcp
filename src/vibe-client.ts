@@ -123,6 +123,14 @@ export interface ListCriteriaOptions {
   offset?: number;
 }
 
+export interface CreatePageData {
+  project_id: string;
+  name: string;
+  path?: string;
+  description?: string;
+  status?: "draft" | "confirmed";
+}
+
 export interface SubmitTaskData {
   title: string;
   prompt: string;
@@ -261,6 +269,27 @@ export class VibeMapClient {
 
   async createProject(data: Record<string, unknown>): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>("/api/crud/projects", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async createPage(data: CreatePageData): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>("/api/crud/pages", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ── Personas ──────────────────────────────────────────────────────────────
+
+  /**
+   * Create a persona. The body is already snake_case (the handler converts the
+   * camelCase MCP args via camelToSnakeDeep and assembles persona_data), so this
+   * stays loosely typed like createProject — the server re-validates the shape.
+   */
+  async createPersona(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>("/api/crud/personas", {
       method: "POST",
       body: JSON.stringify(data),
     });
