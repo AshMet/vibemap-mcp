@@ -420,4 +420,35 @@ describe("VibeMapClient", () => {
     });
     expect((result as any).id).toBe("pg-new");
   });
+
+  // ── Prompts ──────────────────────────────────────────────────────────────────
+
+  it("fetches an expanded prompt and returns its text", async () => {
+    let capturedUrl = "";
+    server.use(
+      http.get(`${baseUrl}/api/mcp/prompts`, ({ request }) => {
+        capturedUrl = request.url;
+        return HttpResponse.json({ name: "author_idea", text: "EXPANDED" });
+      })
+    );
+
+    const text = await client.getPrompt("author_idea", { projectId: "proj-1" });
+    expect(text).toBe("EXPANDED");
+    expect(capturedUrl).toContain("name=author_idea");
+    expect(capturedUrl).toContain("projectId=proj-1");
+    expect(capturedUrl).not.toContain("localPath=");
+  });
+
+  it("includes localPath when provided", async () => {
+    let capturedUrl = "";
+    server.use(
+      http.get(`${baseUrl}/api/mcp/prompts`, ({ request }) => {
+        capturedUrl = request.url;
+        return HttpResponse.json({ name: "author_spec", text: "X" });
+      })
+    );
+
+    await client.getPrompt("author_spec", { projectId: "proj-1", localPath: "/home/me/app" });
+    expect(capturedUrl).toContain("localPath=%2Fhome%2Fme%2Fapp");
+  });
 });

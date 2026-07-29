@@ -158,6 +158,19 @@ The server exposes **31 tools** via the `vibemap_` prefix.
 | `vibemap_analyze_codebase` | Reverse-engineer a codebase into VibeMap assets |
 | `vibemap_get_generation_status` | Poll AI generation task status |
 
+## Prompts (slash commands)
+
+The server also exposes **prompts** — invocable workflows your IDE surfaces as slash commands (in Claude Code: `/mcp__vibemap__<name>`). The body of each prompt is expanded from VibeMap's server at call time, so you invoke a workflow rather than paste a long instruction. Each takes a `projectId`; the code-oriented ones also accept an optional `localPath`.
+
+| Prompt | Args | Description |
+|---|---|---|
+| `author_spec` | `projectId`, `localPath?` | Author the full spec graph from your local codebase (bring-your-own-agent, code-first) |
+| `author_idea` | `projectId` | Author the full spec graph from the project idea (bring-your-own-agent, idea-first) |
+| `sync_changes` | `projectId`, `localPath?` | Detect and reconcile spec drift since the last sync |
+| `code_map` | `projectId`, `localPath?` | Build and submit a structural code map |
+| `load_context` | `projectId` | Load the project's spec context into your agent |
+| `kanban` | `projectId` | Show the project's kanban board |
+
 ## Documentation
 
 Full docs at [vibemap.ai/docs/developer-docs/mcp-server/introduction](https://vibemap.ai/docs/developer-docs/mcp-server/introduction)

@@ -385,6 +385,23 @@ export class VibeMapClient {
     });
   }
 
+  // ── Prompts (server-expanded slash commands) ───────────────────────────────
+
+  /**
+   * Fetch a server-expanded prompt body by name. The prompt text is single-
+   * sourced in the VibeMap app and returned as plain text; this server wraps it
+   * into an MCP GetPromptResult.
+   */
+  async getPrompt(
+    name: string,
+    opts: { projectId: string; localPath?: string }
+  ): Promise<string> {
+    const res = await this.request<{ name: string; text: string }>(
+      `/api/mcp/prompts${this.buildQuery({ name, projectId: opts.projectId, localPath: opts.localPath })}`
+    );
+    return res.text;
+  }
+
   // ── Tasks (AI Generation) ─────────────────────────────────────────────────
 
   async submitTask(data: SubmitTaskData): Promise<{ sessionId: string }> {
