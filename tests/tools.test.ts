@@ -24,6 +24,7 @@ vi.mock("../src/vibe-client", () => {
         createProject: vi.fn(),
         createPersona: vi.fn(),
         createPage: vi.fn(),
+        createSchema: vi.fn(),
         getPrompt: vi.fn(),
         getPageWithSections: vi.fn(),
         listFeatures: vi.fn(),
@@ -64,6 +65,7 @@ const stableMockClient = {
   createProject: vi.fn(),
   createPersona: vi.fn(),
   createPage: vi.fn(),
+  createSchema: vi.fn(),
   getPrompt: vi.fn(),
   getPageWithSections: vi.fn(),
   listFeatures: vi.fn(),
@@ -116,6 +118,7 @@ describe("MCP Tools", () => {
     "vibemap_get_page_source",
     "vibemap_create_persona",
     "vibemap_create_page",
+    "vibemap_create_schema",
     "vibemap_list_features",
     "vibemap_create_feature",
     "vibemap_update_feature",
@@ -180,6 +183,7 @@ describe("MCP Tools", () => {
     const EXPECTED_PROMPTS = [
       "author_spec",
       "author_idea",
+      "author_schema",
       "sync_changes",
       "code_map",
       "load_context",
@@ -344,6 +348,84 @@ describe("MCP Tools", () => {
     it("throws on missing projectId", async () => {
       await expect(
         handleCallTool(makeRequest("vibemap_create_page", { name: "Dashboard" }))
+      ).rejects.toThrow(McpError);
+    });
+  });
+
+  // ── vibemap_create_schema ────────────────────────────────────────────────────
+  describe("vibemap_create_schema", () => {
+    it("persists tables + relationships as camelCase SchemaJSON (no case conversion)", async () => {
+      stableMockClient.createSchema.mockResolvedValue({
+        tables: [{ id: "t1", name: "users" }],
+        meta: { tables: 1, relationships: 0 },
+      });
+
+      const result = await handleCallTool(
+        makeRequest("vibemap_create_schema", {
+          projectId: "proj-1",
+          tables: [
+            {
+              name: "users",
+              description: "Application users",
+              columns: [
+                { name: "id", type: "UUID", primaryKey: true },
+                { name: "email", type: "TEXT", unique: true, nullable: false },
+              ],
+            },
+            {
+              name: "orders",
+              columns: [
+                { name: "id", type: "UUID", primaryKey: true },
+                { name: "user_id", type: "UUID", foreignKey: { table: "users", column: "id" } },
+              ],
+            },
+          ],
+        })
+      );
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.tables).toHaveLength(1);
+
+      const body = stableMockClient.createSchema.mock.calls[0][0];
+      expect(body.projectId).toBe("proj-1");
+      // camelCase preserved end-to-end — foreignKey/primaryKey are NOT snake_cased.
+      expect(body.tables[0].columns[0].primaryKey).toBe(true);
+      expect(body.tables[1].columns[1].foreignKey).toEqual({ table: "users", column: "id" });
+    });
+
+    it("allows omitting relationships (FKs auto-derive)", async () => {
+      stableMockClient.createSchema.mockResolvedValue({ tables: [], meta: {} });
+
+      await handleCallTool(
+        makeRequest("vibemap_create_schema", {
+          projectId: "proj-1",
+          tables: [{ name: "users", columns: [{ name: "id", type: "UUID", primaryKey: true }] }],
+        })
+      );
+
+      const body = stableMockClient.createSchema.mock.calls[0][0];
+      expect(body.relationships).toBeUndefined();
+    });
+
+    it("throws on missing tables", async () => {
+      await expect(
+        handleCallTool(makeRequest("vibemap_create_schema", { projectId: "proj-1" }))
+      ).rejects.toThrow(McpError);
+    });
+
+    it("throws on an empty tables array", async () => {
+      await expect(
+        handleCallTool(makeRequest("vibemap_create_schema", { projectId: "proj-1", tables: [] }))
+      ).rejects.toThrow(McpError);
+    });
+
+    it("throws on missing projectId", async () => {
+      await expect(
+        handleCallTool(
+          makeRequest("vibemap_create_schema", {
+            tables: [{ name: "users", columns: [] }],
+          })
+        )
       ).rejects.toThrow(McpError);
     });
   });

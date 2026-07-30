@@ -35,6 +35,12 @@ export const PROMPT_DEFINITIONS: Prompt[] = [
     arguments: [PROJECT_ARG],
   },
   {
+    name: "author_schema",
+    description:
+      "Author the project's DATABASE SCHEMA (bring-your-own-agent) — tables → columns → relationships — persisted into VibeMap via vibemap_create_schema. Its own step: run AFTER the rest of the spec exists, grounded on the spec (idea-first) or the codebase's models/migrations (code-first, pass localPath). Your agent does the thinking on your tokens.",
+    arguments: [PROJECT_ARG, LOCAL_PATH_ARG],
+  },
+  {
     name: "sync_changes",
     description:
       "Detect and reconcile spec drift between your codebase and VibeMap since the last sync, updating any stale features/stories/criteria.",

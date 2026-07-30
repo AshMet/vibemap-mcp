@@ -139,6 +139,47 @@ export interface SubmitTaskData {
   additionalData?: Record<string, unknown>;
 }
 
+// ── Schema (Engine A: bring-your-own-agent database schema) ──────────────────
+//
+// The schema surface is camelCase end-to-end — it mirrors VibeMap's SchemaJSON,
+// which SchemaDatabaseService.saveSchema consumes directly. Unlike personas/pages
+// there is NO snake_case conversion here.
+
+export interface SchemaColumnData {
+  name: string;
+  type: string;
+  primaryKey?: boolean;
+  nullable?: boolean;
+  unique?: boolean;
+  default?: string;
+  description?: string;
+  check?: string;
+  maxLength?: string;
+  foreignKey?: { table: string; column: string };
+}
+
+export interface SchemaTableData {
+  name: string;
+  description?: string;
+  columns: SchemaColumnData[];
+}
+
+export interface SchemaRelationshipData {
+  sourceTable: string;
+  sourceColumn: string;
+  targetTable: string;
+  targetColumn: string;
+  sourceCardinality: "1" | "N";
+  targetCardinality: "1" | "N";
+  onDelete?: string;
+}
+
+export interface CreateSchemaData {
+  projectId: string;
+  tables: SchemaTableData[];
+  relationships?: SchemaRelationshipData[];
+}
+
 // ─── Client ──────────────────────────────────────────────────────────────────
 
 export class VibeMapClient {
@@ -276,6 +317,21 @@ export class VibeMapClient {
 
   async createPage(data: CreatePageData): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>("/api/crud/pages", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ── Schema ───────────────────────────────────────────────────────────────
+
+  /**
+   * Persist a project's database schema (tables → columns → relationships). The
+   * body is already camelCase (it mirrors VibeMap's SchemaJSON), so no case
+   * conversion happens — the server keyed-reconciles it, so re-running is
+   * idempotent.
+   */
+  async createSchema(data: CreateSchemaData): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>("/api/crud/schema", {
       method: "POST",
       body: JSON.stringify(data),
     });
