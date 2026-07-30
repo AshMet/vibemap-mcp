@@ -85,7 +85,7 @@ Same format as Cursor. Add to your Windsurf MCP settings file and restart.
 
 ## Tools
 
-The server exposes **32 tools** via the `vibemap_` prefix.
+The server exposes **36 tools** via the `vibemap_` prefix.
 
 **Projects & context**
 
@@ -105,6 +105,12 @@ The server exposes **32 tools** via the `vibemap_` prefix.
 | `vibemap_create_persona` | Create a rich user persona (demographics, goals, pain points, …) |
 | `vibemap_create_page` | Create a page/screen in the project's page inventory |
 | `vibemap_create_schema` | Persist the database schema (tables → columns → relationships) in one call |
+
+**Conversational agent (Engine B — hosted, metered)**
+
+| Tool | Description |
+|---|---|
+| `vibemap_agent` | Drive VibeMap's full conversational agent for one turn (same brain as the in-app chat). Metered — uses VibeMap tokens. Destructive turns return a plan + `operationId` to approve in a second call; long generations run in the background (poll `get_generation_status`) |
 
 **Features**
 
@@ -150,6 +156,7 @@ The server exposes **32 tools** via the `vibemap_` prefix.
 | Tool | Description |
 |---|---|
 | `vibemap_list_changesets` | List changesets (your writes + history) with op counts; `includeOps` for diffs |
+| `vibemap_sync_changes` | Report changed paths since the last sync so VibeMap can flag spec drift |
 
 **Codebase**
 
@@ -157,6 +164,8 @@ The server exposes **32 tools** via the `vibemap_` prefix.
 |---|---|
 | `vibemap_scan_codebase` | Walk a local directory |
 | `vibemap_analyze_codebase` | Reverse-engineer a codebase into VibeMap assets |
+| `vibemap_submit_code_map` | Submit a structural code map (nodes/edges) rendered on the project's Codebase tab |
+| `vibemap_get_code_map` | Fetch the project's current code map (status, nodes/edges, sync anchor + drift) |
 | `vibemap_get_generation_status` | Poll AI generation task status |
 
 ## Prompts (slash commands)

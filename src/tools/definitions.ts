@@ -314,6 +314,44 @@ export const TOOL_DEFINITIONS: Tool[] = [
     },
   },
 
+  // ── Group 1b: Conversational Agent (Engine B — hosted, metered) ──────────
+  {
+    name: "vibemap_agent",
+    description:
+      "Drive VibeMap's full conversational agent for one turn — the same brain as the in-app chat sidebar, entered through MCP. Give it a natural-language `message` (ask a question, or request a change like 'add a persona for admins', 'generate user stories for the billing feature', 'rename the Orders page'). This is METERED: it runs on VibeMap's own models and draws down the project owner's VibeMap token budget — unlike the granular create_*/list_* tools, which run on your agent and are unmetered. Use it when you want VibeMap to do the thinking; use the granular tools when your own agent authors content. CONFIRMATION (two calls): a destructive or sensitive request (deletes, permission changes, paid pipelines) replies with `confirmationRequired: true`, a human-readable `plan`, and an `operationId` — show the plan to the user, then approve with a second call `{ projectId, approveOperationId }` (or `{ projectId, approve: true }`, or a natural 'yes'). Nothing changes until you approve. ASYNC: turns that kick off a generation (features, user stories, schema, business case, …) reply with `generationStarted: true` and start a background job — poll it with vibemap_get_generation_status, then read results with the list_* tools. MEMORY: omit `sessionId` and the agent auto-threads history per project across calls; pass back the `sessionId` from a prior reply to pin a thread.",
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectId: { type: "string", description: "Project the agent operates on (you must own it)" },
+        message: {
+          type: "string",
+          description:
+            "Natural-language instruction or question. Required unless approving a pending operation.",
+        },
+        model: {
+          type: "string",
+          description: "Optional model id for the turn (defaults to VibeMap's economy model).",
+        },
+        sessionId: {
+          type: "string",
+          description:
+            "Optional conversation thread (uuid). Omit to auto-thread history per project; pass the sessionId from a prior reply to continue that thread.",
+        },
+        approveOperationId: {
+          type: "string",
+          description:
+            "Approve a specific pending operation returned by an earlier confirmationRequired reply.",
+        },
+        approve: {
+          type: "boolean",
+          description: "Approve the latest pending operation without quoting its operationId.",
+        },
+      },
+      required: ["projectId"],
+    },
+  },
+
   // ── Group 2: Features ──────────────────────────────────────────────────
   {
     name: "vibemap_list_features",

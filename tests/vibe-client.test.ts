@@ -464,6 +464,56 @@ describe("VibeMapClient", () => {
     ).rejects.toThrow("Project not found or access denied");
   });
 
+  // ── Agent ────────────────────────────────────────────────────────────────────
+
+  it("drives the agent via POST /api/mcp/agent with message + opts", async () => {
+    let capturedBody: any;
+    server.use(
+      http.post(`${baseUrl}/api/mcp/agent`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({
+          success: true,
+          response: "You have 3 features.",
+          confirmationRequired: false,
+          sessionId: "11111111-1111-1111-1111-111111111111",
+        });
+      })
+    );
+
+    const result = await client.agent("proj-1", "what features do I have?", {
+      model: "gemini-3-flash",
+    });
+
+    expect((result as any).response).toBe("You have 3 features.");
+    expect(capturedBody.projectId).toBe("proj-1");
+    expect(capturedBody.message).toBe("what features do I have?");
+    expect(capturedBody.model).toBe("gemini-3-flash");
+  });
+
+  it("forwards approveOperationId for the two-call confirm flow", async () => {
+    let capturedBody: any;
+    server.use(
+      http.post(`${baseUrl}/api/mcp/agent`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ success: true, response: "Done." });
+      })
+    );
+
+    await client.agent("proj-1", "", { approveOperationId: "op-123" });
+    expect(capturedBody.projectId).toBe("proj-1");
+    expect(capturedBody.approveOperationId).toBe("op-123");
+  });
+
+  it("propagates server errors from the agent route", async () => {
+    server.use(
+      http.post(`${baseUrl}/api/mcp/agent`, () => {
+        return HttpResponse.json({ error: "Project not found or access denied" }, { status: 404 });
+      })
+    );
+
+    await expect(client.agent("missing", "hi")).rejects.toThrow("Project not found or access denied");
+  });
+
   // ── Prompts ──────────────────────────────────────────────────────────────────
 
   it("fetches an expanded prompt and returns its text", async () => {
