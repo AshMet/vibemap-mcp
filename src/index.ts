@@ -193,6 +193,29 @@ const CreateSchemaSchema = ProjectIdSchema.extend({
     .describe("Optional — FKs on columns auto-derive relationships, so this can be omitted"),
 });
 
+const AgentSchema = ProjectIdSchema.extend({
+  message: z
+    .string()
+    .optional()
+    .describe(
+      "What to ask/tell the agent (e.g. 'what features do I have?', 'add a persona for admins'). Required unless approving a pending operation."
+    ),
+  model: z.string().optional().describe("Model id for the turn (defaults to the economy model)"),
+  sessionId: z
+    .string()
+    .optional()
+    .describe(
+      "Conversation thread (uuid). Omit to auto-thread per project; pass the sessionId from a prior reply to continue that thread."
+    ),
+  approveOperationId: z
+    .string()
+    .optional()
+    .describe("Approve a specific pending operation returned by an earlier confirmationRequired reply"),
+  approve: z.boolean().optional().describe("Approve the latest pending operation without quoting its id"),
+}).refine((v) => Boolean(v.message) || Boolean(v.approveOperationId) || v.approve === true, {
+  message: "message is required unless approving a pending operation (approveOperationId / approve)",
+});
+
 const ListFeaturesSchema = ProjectIdSchema.extend({
   status: FeatureStatusEnum.optional().describe("Filter by status"),
   priority: z.enum(["high", "medium", "low"]).optional().describe("Filter by priority"),
@@ -725,6 +748,24 @@ export async function handleCallTool(request: CallToolRequest) {
           projectId: parsed.projectId,
           tables: parsed.tables,
           relationships: parsed.relationships,
+        });
+        const clean = stripFields(result, GLOBAL_STRIP);
+        return { content: [{ type: "text", text: JSON.stringify(clean, null, 2) }] };
+      }
+
+      // ── vibemap_agent ──────────────────────────────────────────────────────
+      case "vibemap_agent": {
+        const parsed = AgentSchema.parse(args);
+        const client = getVibeClient();
+        // Drives VibeMap's hosted conversational agent (Engine B, metered). A
+        // destructive turn returns confirmationRequired + operationId → approve
+        // in a second call. Async work returns generationStarted → poll
+        // vibemap_get_generation_status.
+        const result = await client.agent(parsed.projectId, parsed.message ?? "", {
+          model: parsed.model,
+          sessionId: parsed.sessionId,
+          approveOperationId: parsed.approveOperationId,
+          approve: parsed.approve,
         });
         const clean = stripFields(result, GLOBAL_STRIP);
         return { content: [{ type: "text", text: JSON.stringify(clean, null, 2) }] };

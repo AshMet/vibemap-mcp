@@ -25,6 +25,7 @@ vi.mock("../src/vibe-client", () => {
         createPersona: vi.fn(),
         createPage: vi.fn(),
         createSchema: vi.fn(),
+        agent: vi.fn(),
         getPrompt: vi.fn(),
         getPageWithSections: vi.fn(),
         listFeatures: vi.fn(),
@@ -66,6 +67,7 @@ const stableMockClient = {
   createPersona: vi.fn(),
   createPage: vi.fn(),
   createSchema: vi.fn(),
+  agent: vi.fn(),
   getPrompt: vi.fn(),
   getPageWithSections: vi.fn(),
   listFeatures: vi.fn(),
@@ -119,6 +121,7 @@ describe("MCP Tools", () => {
     "vibemap_create_persona",
     "vibemap_create_page",
     "vibemap_create_schema",
+    "vibemap_agent",
     "vibemap_list_features",
     "vibemap_create_feature",
     "vibemap_update_feature",
@@ -426,6 +429,59 @@ describe("MCP Tools", () => {
             tables: [{ name: "users", columns: [] }],
           })
         )
+      ).rejects.toThrow(McpError);
+    });
+  });
+
+  // ── vibemap_agent ────────────────────────────────────────────────────────────
+  describe("vibemap_agent", () => {
+    it("drives the agent with a message and returns the response", async () => {
+      stableMockClient.agent.mockResolvedValue({
+        success: true,
+        response: "You have 3 features.",
+        confirmationRequired: false,
+        sessionId: "11111111-1111-1111-1111-111111111111",
+      });
+
+      const result = await handleCallTool(
+        makeRequest("vibemap_agent", {
+          projectId: "proj-1",
+          message: "what features do I have?",
+          model: "gemini-3-flash",
+        })
+      );
+
+      const data = JSON.parse(result.content[0].text);
+      expect(data.response).toBe("You have 3 features.");
+
+      const [projectId, message, opts] = stableMockClient.agent.mock.calls[0];
+      expect(projectId).toBe("proj-1");
+      expect(message).toBe("what features do I have?");
+      expect(opts).toMatchObject({ model: "gemini-3-flash" });
+    });
+
+    it("passes approveOperationId through for the two-call confirm flow (message optional)", async () => {
+      stableMockClient.agent.mockResolvedValue({ success: true, response: "Done." });
+
+      await handleCallTool(
+        makeRequest("vibemap_agent", { projectId: "proj-1", approveOperationId: "op-123" })
+      );
+
+      const [projectId, message, opts] = stableMockClient.agent.mock.calls[0];
+      expect(projectId).toBe("proj-1");
+      expect(message).toBe(""); // no message needed on an approval call
+      expect(opts.approveOperationId).toBe("op-123");
+    });
+
+    it("throws on missing projectId", async () => {
+      await expect(handleCallTool(makeRequest("vibemap_agent", { message: "hi" }))).rejects.toThrow(
+        McpError
+      );
+    });
+
+    it("throws when neither message nor approval is provided", async () => {
+      await expect(
+        handleCallTool(makeRequest("vibemap_agent", { projectId: "proj-1" }))
       ).rejects.toThrow(McpError);
     });
   });

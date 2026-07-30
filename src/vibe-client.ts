@@ -180,6 +180,36 @@ export interface CreateSchemaData {
   relationships?: SchemaRelationshipData[];
 }
 
+// ── Agent (Engine B: VibeMap-hosted conversational agent, metered) ───────────
+
+export interface AgentOptions {
+  /** Model id for the turn (server defaults to the economy model). */
+  model?: string;
+  /**
+   * Conversation thread. Omit and the server derives a stable thread per
+   * (user, project) so multi-turn history carries across calls; pass the
+   * `sessionId` echoed by a prior reply to pin a specific thread.
+   */
+  sessionId?: string;
+  /** Approve a specific pending operation (from a prior confirmationRequired reply). */
+  approveOperationId?: string;
+  /** Approve the latest pending operation without quoting its id. */
+  approve?: boolean;
+}
+
+export interface AgentResult {
+  response: string;
+  confirmationRequired?: boolean;
+  operationId?: string;
+  plan?: unknown;
+  clarificationNeeded?: unknown;
+  executionResults?: unknown;
+  generationStarted?: boolean;
+  sessionId?: string;
+  success?: boolean;
+  [key: string]: unknown;
+}
+
 // ─── Client ──────────────────────────────────────────────────────────────────
 
 export class VibeMapClient {
@@ -189,11 +219,17 @@ export class VibeMapClient {
     this.config = config;
   }
 
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  // Default 30s covers CRUD calls. The agent tool drives a full LLM turn
+  // (classify → plan → impact), so it passes a longer budget.
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {},
+    timeoutMs = 30000
+  ): Promise<T> {
     const url = `${this.config.baseUrl}${endpoint}`;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       const response = await fetch(url, {
@@ -335,6 +371,34 @@ export class VibeMapClient {
       method: "POST",
       body: JSON.stringify(data),
     });
+  }
+
+  // ── Agent (Engine B: hosted conversational agent) ──────────────────────────
+
+  /**
+   * Drive the full VibeMap conversational agent for one turn. Metered (uses
+   * VibeMap tokens). A destructive/sensitive turn replies with
+   * `confirmationRequired` + an `operationId`; approve it in a second call
+   * (`approveOperationId`). Long generations run in the background — the reply
+   * says so and you poll `getTaskStatus`. Uses a longer timeout than CRUD
+   * calls because the turn drives an LLM plan/impact pass.
+   */
+  async agent(projectId: string, message: string, opts: AgentOptions = {}): Promise<AgentResult> {
+    return this.request<AgentResult>(
+      "/api/mcp/agent",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          projectId,
+          message,
+          model: opts.model,
+          sessionId: opts.sessionId,
+          approveOperationId: opts.approveOperationId,
+          approve: opts.approve,
+        }),
+      },
+      120000
+    );
   }
 
   // ── Personas ──────────────────────────────────────────────────────────────
