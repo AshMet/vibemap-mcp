@@ -544,4 +544,30 @@ describe("VibeMapClient", () => {
     await client.getPrompt("author_spec", { projectId: "proj-1", localPath: "/home/me/app" });
     expect(capturedUrl).toContain("localPath=%2Fhome%2Fme%2Fapp");
   });
+
+  // ── Auth failures ──────────────────────────────────────────────────────────
+
+  describe("401 handling", () => {
+    it("names the rejecting host and the per-instance rule", async () => {
+      server.use(
+        http.get(`${baseUrl}/api/crud/projects`, () =>
+          HttpResponse.json({ error: "Unauthorized" }, { status: 401 })
+        )
+      );
+
+      await expect(client.listProjects()).rejects.toThrow(baseUrl);
+      await expect(client.listProjects()).rejects.toThrow(/only valid on the VibeMap instance/);
+    });
+
+    it("leaves non-401 errors unembellished", async () => {
+      server.use(
+        http.get(`${baseUrl}/api/crud/projects`, () =>
+          HttpResponse.json({ error: "Project not found" }, { status: 404 })
+        )
+      );
+
+      await expect(client.listProjects()).rejects.toThrow("Project not found");
+      await expect(client.listProjects()).rejects.not.toThrow(/VIBEMAP_API_KEY/);
+    });
+  });
 });

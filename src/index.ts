@@ -609,7 +609,7 @@ export const server = new Server(
     name: "vibemap-mcp-server",
     // Keep in sync with package.json — this is the version the server advertises
     // to MCP clients in the initialize handshake.
-    version: "2.8.0",
+    version: "2.9.0",
   },
   {
     capabilities: { tools: {}, prompts: {} },
@@ -623,15 +623,33 @@ export function resetVibeClient() {
   _vibeClient = null;
 }
 
+/** How the user actually fixes a missing key, by install route. The plugin route
+ * is the one that bites: Claude Code lists the tools whether or not the plugin's
+ * optional API-key option was filled in, so the first symptom of a blank key is a
+ * tool call failing — with no hint that a plugin option is what's missing. */
+const MISSING_KEY_HELP = [
+  "VIBEMAP_API_KEY is not set, so VibeMap cannot authenticate.",
+  "Installed via the Claude Code plugin? Run /plugin, open VibeMap, paste your key into 'VibeMap API key', then restart Claude Code.",
+  "Configured MCP by hand? Add VIBEMAP_API_KEY to the vibemap server's env in your MCP config and restart your IDE.",
+  "Get a key at https://vibemap.ai/account?tab=developer (Pro plan or higher). A key is only valid on the VibeMap instance that issued it.",
+].join(" ");
+
+/** An unexpanded `${...}` placeholder means the client never substituted the
+ * value (e.g. a plugin option left blank, or a config written for a different
+ * client's templating). Treat it as absent rather than sending it upstream, where
+ * it would surface as an opaque 401. */
+const isUnresolvedPlaceholder = (value: string) => /^\$\{.*\}$/.test(value.trim());
+
 const getVibeClient = () => {
   if (_vibeClient) return _vibeClient;
-  const apiKey = process.env.VIBEMAP_API_KEY;
+  const rawKey = process.env.VIBEMAP_API_KEY?.trim();
+  const apiKey = rawKey && !isUnresolvedPlaceholder(rawKey) ? rawKey : undefined;
   // Production-first default: IDE users following the docs only set
   // VIBEMAP_API_KEY. Local development against a dev server sets
   // VIBEMAP_BASE_URL=http://localhost:3000 explicitly.
   const baseUrl = process.env.VIBEMAP_BASE_URL || "https://vibemap.ai";
   if (!apiKey) {
-    throw new McpError(ErrorCode.InternalError, "VIBEMAP_API_KEY environment variable is required");
+    throw new McpError(ErrorCode.InternalError, MISSING_KEY_HELP);
   }
   _vibeClient = new VibeMapClient({ baseUrl, apiKey });
   return _vibeClient;
