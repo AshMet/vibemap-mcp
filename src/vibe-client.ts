@@ -244,9 +244,21 @@ export class VibeMapClient {
 
       if (!response.ok) {
         const errorBody = await response.json().catch(() => ({ error: response.statusText }));
-        throw new Error(
-          ((errorBody as Record<string, unknown>).error as string) || `HTTP ${response.status}`
-        );
+        const message =
+          ((errorBody as Record<string, unknown>).error as string) || `HTTP ${response.status}`;
+        // A bare "Unauthorized" is the most confusing failure this server can
+        // produce: it names neither the host that rejected the key nor the reason.
+        // Tokens are per-instance, so a key issued by a local VibeMap fails against
+        // vibemap.ai (and vice versa) — as does a project id from the other one.
+        if (response.status === 401) {
+          throw new Error(
+            `${message} — ${this.config.baseUrl} rejected this VIBEMAP_API_KEY. ` +
+              `Keys are only valid on the VibeMap instance that issued them: confirm this key ` +
+              `came from ${this.config.baseUrl} (Account -> Developer) and was not revoked, and ` +
+              `that VIBEMAP_BASE_URL points at that same instance.`
+          );
+        }
+        throw new Error(message);
       }
 
       return response.json() as Promise<T>;
