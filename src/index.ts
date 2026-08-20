@@ -16,6 +16,7 @@ import { formatPageSourceResponse, type PageRecord } from "./page-source.js";
 import { PROJECTLESS_PROMPTS, PROMPT_DEFINITIONS, PROMPT_NAMES } from "./prompts/definitions.js";
 import { TOOL_DEFINITIONS } from "./tools/definitions.js";
 import { buildCodebaseDigest, camelToSnakeDeep, walkDir } from "./utils.js";
+import { SERVER_VERSION } from "./version.js";
 import {
   type CriterionStatus,
   type FeatureStatus,
@@ -607,9 +608,9 @@ const AC_STRIP = [...GLOBAL_STRIP, "title", "description"];
 export const server = new Server(
   {
     name: "vibemap-mcp-server",
-    // Keep in sync with package.json — this is the version the server advertises
-    // to MCP clients in the initialize handshake.
-    version: "2.10.0",
+    // Derived from package.json, never copied — this is the version the server
+    // advertises to MCP clients in the initialize handshake.
+    version: SERVER_VERSION,
   },
   {
     capabilities: { tools: {}, prompts: {} },
