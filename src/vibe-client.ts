@@ -523,10 +523,14 @@ export class VibeMapClient {
    * Fetch a server-expanded prompt body by name. The prompt text is single-
    * sourced in the VibeMap app and returned as plain text; this server wraps it
    * into an MCP GetPromptResult.
+   *
+   * `projectId` is optional because the bootstrap prompt (`new_project`) has no
+   * project yet — `buildQuery` drops undefined params, so it is simply absent
+   * from the query string rather than sent empty.
    */
   async getPrompt(
     name: string,
-    opts: { projectId: string; localPath?: string }
+    opts: { projectId?: string; localPath?: string }
   ): Promise<string> {
     const res = await this.request<{ name: string; text: string }>(
       `/api/mcp/prompts${this.buildQuery({ name, projectId: opts.projectId, localPath: opts.localPath })}`
