@@ -184,8 +184,14 @@ describe("MCP Tools", () => {
   // ── Prompts (server-expanded slash commands) ─────────────────────────────────
   describe("prompts", () => {
     const EXPECTED_PROMPTS = [
+      "new_project",
       "author_spec",
       "author_idea",
+      "author_personas",
+      "author_features",
+      "author_stories",
+      "author_criteria",
+      "author_pages",
       "author_schema",
       "sync_changes",
       "code_map",
@@ -198,6 +204,30 @@ describe("MCP Tools", () => {
       expect(prompts.map((p) => p.name).sort()).toEqual([...EXPECTED_PROMPTS].sort());
       const authorSpec = prompts.find((p) => p.name === "author_spec");
       expect(authorSpec?.arguments?.some((a) => a.name === "projectId" && a.required)).toBe(true);
+    });
+
+    it("declares new_project as the one prompt taking no arguments", async () => {
+      const { prompts } = await handleListPrompts();
+      expect(prompts.find((p) => p.name === "new_project")?.arguments).toEqual([]);
+      // Every OTHER prompt must still require a projectId — the bootstrap
+      // exemption is deliberately a set of exactly one.
+      for (const p of prompts.filter((p) => p.name !== "new_project")) {
+        expect(p.arguments?.some((a) => a.name === "projectId" && a.required)).toBe(true);
+      }
+    });
+
+    it("expands new_project without a projectId, and still rejects one for the rest", async () => {
+      stableMockClient.getPrompt.mockResolvedValue("BOOTSTRAP TEXT");
+      const result = await handleGetPrompt(makeRequest("new_project", {}) as any);
+      expect(stableMockClient.getPrompt).toHaveBeenCalledWith("new_project", {
+        projectId: undefined,
+        localPath: undefined,
+      });
+      expect(result.messages[0].content.text).toBe("BOOTSTRAP TEXT");
+
+      await expect(handleGetPrompt(makeRequest("author_personas", {}) as any)).rejects.toThrow(
+        /requires a projectId/
+      );
     });
 
     it("expands a prompt by proxying to the server and wraps it as a user message", async () => {

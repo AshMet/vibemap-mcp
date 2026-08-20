@@ -13,7 +13,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { formatPageSourceResponse, type PageRecord } from "./page-source.js";
-import { PROMPT_DEFINITIONS, PROMPT_NAMES } from "./prompts/definitions.js";
+import { PROJECTLESS_PROMPTS, PROMPT_DEFINITIONS, PROMPT_NAMES } from "./prompts/definitions.js";
 import { TOOL_DEFINITIONS } from "./tools/definitions.js";
 import { buildCodebaseDigest, camelToSnakeDeep, walkDir } from "./utils.js";
 import {
@@ -609,7 +609,7 @@ export const server = new Server(
     name: "vibemap-mcp-server",
     // Keep in sync with package.json — this is the version the server advertises
     // to MCP clients in the initialize handshake.
-    version: "2.9.0",
+    version: "2.10.0",
   },
   {
     capabilities: { tools: {}, prompts: {} },
@@ -673,13 +673,15 @@ export async function handleGetPrompt(request: GetPromptRequest) {
     throw new McpError(ErrorCode.InvalidParams, `Unknown prompt: ${name}`);
   }
   const projectId = (args?.projectId ?? "").trim();
-  if (!projectId) {
+  // `new_project` creates the project, so it cannot be handed one. Every other
+  // prompt is project-scoped and the server re-checks ownership before expanding.
+  if (!projectId && !PROJECTLESS_PROMPTS.has(name)) {
     throw new McpError(ErrorCode.InvalidParams, `Prompt '${name}' requires a projectId argument`);
   }
   const localPath = args?.localPath?.trim() || undefined;
 
   const client = getVibeClient();
-  const text = await client.getPrompt(name, { projectId, localPath });
+  const text = await client.getPrompt(name, { projectId: projectId || undefined, localPath });
 
   const def = PROMPT_DEFINITIONS.find((p) => p.name === name);
   return {
