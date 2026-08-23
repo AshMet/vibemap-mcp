@@ -343,6 +343,57 @@ describe("VibeMapClient", () => {
     await expect(client.listAccessRules("missing")).rejects.toThrow("Project not found");
   });
 
+  it("calls /api/mcp/review-plan with the projectId", async () => {
+    let capturedUrl = "";
+    let capturedAuth = "";
+    const mockPlan = {
+      project_id: "proj-1",
+      ready_to_build: false,
+      blocking_steps: 1,
+      total_findings: 4,
+      sources_failed: [],
+      steps: [
+        {
+          position: 1,
+          id: "review:page-no-access",
+          kind: "page-no-access",
+          tier: "access",
+          title: "Decide who can open these pages",
+          why: "Pages with no access rule are unreachable for every role.",
+          severity: "warning",
+          blocking: true,
+          count: 3,
+          finding_ids: ["page-no-access:page:1"],
+          messages: ['Page "Dashboard" has no access rule.'],
+          node_ids: ["page:1"],
+          action: { kind: "navigate", href: "/project/proj-1/pages" },
+        },
+      ],
+    };
+    server.use(
+      http.get(`${baseUrl}/api/mcp/review-plan`, ({ request }) => {
+        capturedUrl = request.url;
+        capturedAuth = request.headers.get("authorization") ?? "";
+        return HttpResponse.json(mockPlan);
+      })
+    );
+
+    const result = await client.getReviewPlan("proj-1");
+    expect(capturedUrl).toContain("projectId=proj-1");
+    expect(capturedAuth).toBe(`Bearer ${apiKey}`);
+    expect(result).toEqual(mockPlan);
+  });
+
+  it("propagates server errors from the review-plan route", async () => {
+    server.use(
+      http.get(`${baseUrl}/api/mcp/review-plan`, () => {
+        return HttpResponse.json({ error: "Project not found" }, { status: 404 });
+      })
+    );
+
+    await expect(client.getReviewPlan("missing")).rejects.toThrow("Project not found");
+  });
+
   it("calls /api/mcp/changesets with projectId and forwards limit + includeOps", async () => {
     let capturedUrl = "";
     const mockChangesets = {

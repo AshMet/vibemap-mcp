@@ -87,6 +87,20 @@ export const TOOL_DEFINITIONS: Tool[] = [
   },
 
   {
+    name: "vibemap_get_review_plan",
+    description:
+      "Get the ordered list of what stands between a VibeMap project and being ready to build — the same walkthrough the Prepare map shows the user and the same one the in-app agent's briefs come from. Findings on their own are an unordered set, so use this instead of inventing your own priority: steps are grouped by finding kind, ordered so a fix never invalidates earlier work (access → data → surfaces → behaviour → detail → reconcile), and each carries why it matters, which map nodes it concerns, and how it is resolved (action.kind: fix | reconcile | navigate). Check sources_failed — a non-empty list means some checks did not run, so an empty plan is NOT a clean bill of health. Read-only.",
+    annotations: { readOnlyHint: true, destructiveHint: false },
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectId: { type: "string", description: "The VibeMap project ID" },
+      },
+      required: ["projectId"],
+    },
+  },
+
+  {
     name: "vibemap_list_changesets",
     description:
       "List a VibeMap project's version-control changesets (most recent first) with a per-changeset op count. Every write you make through this server is wrapped in a changeset, so use this to see the changesets your own edits produced, audit who/what changed the project, or review recent edit history. Pass includeOps=true to inline each changeset's individual operations (entity_type, op, diff).",
