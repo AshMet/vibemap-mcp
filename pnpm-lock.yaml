@@ -49,7 +49,7 @@ importers:
         version: 7.0.2
       undici:
         specifier: ^8.4.1
-        version: 8.7.0
+        version: 8.10.0
       vitest:
         specifier: ^4.1.0
         version: 4.1.11(@types/node@26.1.1)(msw@2.15.0(@types/node@26.1.1)(typescript@7.0.2))(vite@6.4.3(@types/node@26.1.1))
@@ -1270,8 +1270,8 @@ packages:
   undici-types@8.3.0:
     resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
 
-  undici@8.7.0:
-    resolution: {integrity: sha512-N7iQtfyLhIMOFgQubvmLV26svHpO0bqKnAiWotTQCVKCmWrcGbBotPuW1x+xwYZ2VHdSTVUfPQQnlEt1/LouTQ==}
+  undici@8.10.0:
+    resolution: {integrity: sha512-HvltHd7avK13QIw/oLe4qoOLyoVSoafqJ2jYOrtMRBkbYT31eiBQ8O0ehRKZiEZCMEyLFQNIADpgCWC5fALvYQ==}
     engines: {node: '>=22.19.0'}
 
   unpipe@1.0.0:
@@ -2489,7 +2489,7 @@ snapshots:
 
   undici-types@8.3.0: {}
 
-  undici@8.7.0: {}
+  undici@8.10.0: {}
 
   unpipe@1.0.0: {}
 
