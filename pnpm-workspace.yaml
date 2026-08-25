@@ -4,3 +4,49 @@
 # here) and leak root-only config like patchedDependencies into its installs.
 packages:
   - '.'
+
+# pnpm 10 only WARNED about dependency install scripts it declined to run; pnpm
+# 11 makes it a hard error (ERR_PNPM_IGNORED_BUILDS) until each one is answered
+# explicitly. Both are answered `false`, which is exactly what pnpm 10 was
+# already doing here — so this records the status quo rather than changing it:
+#   - esbuild: a devDependency reached only through vite/vitest. Its platform
+#     binary ships as an optional dependency (@esbuild/<os>-<arch>), so the
+#     postinstall is not what makes it work.
+#   - msw: its postinstall writes a browser service-worker file. These tests run
+#     in node.
+# Nothing in the PUBLISHED package depends on either.
+allowBuilds:
+  esbuild: false
+  msw: false
+
+# ── Security pins (D-296) ─────────────────────────────────────────────────────
+#
+# These force vulnerable transitive dependencies up to a patched version. They
+# used to live in `package.json` under `pnpm.overrides`. pnpm 11 NO LONGER READS
+# the `pnpm` field in package.json — it prints one warning and ignores it — so
+# every pin below silently stopped applying the moment anyone ran pnpm 11:
+#
+#   [WARN] The "pnpm" field in package.json is no longer read by pnpm.
+#          The following keys were ignored: "pnpm.overrides".
+#
+# Nothing noticed because CI pinned pnpm 10. `pnpm-workspace.yaml` is the
+# supported home for settings from pnpm 10.6 onwards and the ONLY home from
+# pnpm 11 (https://pnpm.io/settings/dependency-resolution#overrides).
+#
+# `scripts/assert-overrides.mjs` (pnpm run assert:overrides, run in CI right
+# after install) fails the build if any of these stops resolving. Add a pin here
+# and nowhere else — the guard rejects a `pnpm.overrides` block in package.json
+# precisely so a pin cannot be re-added to the inert location.
+overrides:
+  hono: ^4.12.25
+  '@hono/node-server': ^1.19.13
+  path-to-regexp: ^8.4.0
+  qs: ^6.15.2
+  fast-uri: ^3.1.2
+  ajv: ^8.18.0
+  undici: ^8.4.1
+  esbuild: ^0.28.1
+  form-data: ^4.0.6
+  vite: ^6.4.2
+  rollup: ^4.59.0
+  postcss: ^8.5.10
