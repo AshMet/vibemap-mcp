@@ -184,6 +184,19 @@ describe("MCP Tools", () => {
 
   // ── Prompts (server-expanded slash commands) ─────────────────────────────────
   describe("prompts", () => {
+    // Mirrors the app: the author_* set plus one gen_* per `kind: "generation"`
+    // command in lib/agent/commands/registry.ts, named `gen_` + the command name
+    // with any leading `gen-` stripped and `-` → `_`.
+    const EXPECTED_GEN_PROMPTS = [
+      "gen_personas",
+      "gen_features",
+      "gen_stories",
+      "gen_criteria",
+      "gen_pages",
+      "gen_schema",
+      "gen_sync_criteria_from_pages",
+    ];
+
     const EXPECTED_PROMPTS = [
       "new_project",
       "author_spec",
@@ -198,6 +211,7 @@ describe("MCP Tools", () => {
       "code_map",
       "load_context",
       "kanban",
+      ...EXPECTED_GEN_PROMPTS,
     ];
 
     it("lists the expected prompt set with argument metadata", async () => {
@@ -205,6 +219,31 @@ describe("MCP Tools", () => {
       expect(prompts.map((p) => p.name).sort()).toEqual([...EXPECTED_PROMPTS].sort());
       const authorSpec = prompts.find((p) => p.name === "author_spec");
       expect(authorSpec?.arguments?.some((a) => a.name === "projectId" && a.required)).toBe(true);
+    });
+
+    it("advertises every generation command, and never the doubled gen_gen_* form", async () => {
+      const { prompts } = await handleListPrompts();
+      const gen = prompts.map((p) => p.name).filter((n) => n.startsWith("gen_"));
+      expect(gen.sort()).toEqual([...EXPECTED_GEN_PROMPTS].sort());
+      // The app used to derive `gen_${name.replace(/-/g,"_")}`, which produced
+      // `gen_gen_features`. Any name matching that shape is the bug returning.
+      expect(gen.filter((n) => n.startsWith("gen_gen_"))).toEqual([]);
+    });
+
+    it("does NOT advertise gen_business_case while the research phase is gated off", async () => {
+      // The app drops gen-business-case from listCommands() unless
+      // RESEARCH_PHASE_STATIC_ENABLED, so /api/mcp/prompts has no builder for it.
+      // Advertising it here would offer the IDE a prompt the server 404s.
+      const { prompts } = await handleListPrompts();
+      expect(prompts.map((p) => p.name)).not.toContain("gen_business_case");
+    });
+
+    it("gen_* prompts take a projectId and no localPath", async () => {
+      const { prompts } = await handleListPrompts();
+      for (const p of prompts.filter((x) => x.name.startsWith("gen_"))) {
+        expect(p.arguments?.map((a) => a.name)).toEqual(["projectId"]);
+        expect(p.arguments?.[0]?.required).toBe(true);
+      }
     });
 
     it("declares new_project as the one prompt taking no arguments", async () => {

@@ -170,16 +170,37 @@ The server exposes **36 tools** via the `vibemap_` prefix.
 
 ## Prompts (slash commands)
 
-The server also exposes **prompts** — invocable workflows your IDE surfaces as slash commands (in Claude Code: `/mcp__vibemap__<name>`). The body of each prompt is expanded from VibeMap's server at call time, so you invoke a workflow rather than paste a long instruction. Each takes a `projectId`; the code-oriented ones also accept an optional `localPath`.
+The server also exposes **prompts** — invocable workflows your IDE surfaces as slash commands (in Claude Code: `/mcp__vibemap__<name>`). The body of each prompt is expanded from VibeMap's server at call time, so you invoke a workflow rather than paste a long instruction. Every prompt takes a `projectId` except `new_project`, which is the one that creates a project; the code-oriented ones also accept an optional `localPath`.
 
 | Prompt | Args | Description |
 |---|---|---|
+| `new_project` | — | Guided interview that creates a new VibeMap project. Start here |
 | `author_spec` | `projectId`, `localPath?` | Author the full spec graph from your local codebase (bring-your-own-agent, code-first) |
 | `author_idea` | `projectId` | Author the full spec graph from the project idea (bring-your-own-agent, idea-first) |
+| `author_personas` | `projectId` | Stage 1 of 5 — author just the personas |
+| `author_features` | `projectId` | Stage 2 of 5 — author just the features |
+| `author_stories` | `projectId` | Stage 3 of 5 — author just the user stories |
+| `author_criteria` | `projectId` | Stage 4 of 5 — author just the acceptance criteria |
+| `author_pages` | `projectId` | Stage 5 of 5 — author just the pages |
+| `author_schema` | `projectId`, `localPath?` | Author the database schema — tables, columns, relationships |
 | `sync_changes` | `projectId`, `localPath?` | Detect and reconcile spec drift since the last sync |
 | `code_map` | `projectId`, `localPath?` | Build and submit a structural code map |
 | `load_context` | `projectId` | Load the project's spec context into your agent |
 | `kanban` | `projectId` | Show the project's kanban board |
+
+### `gen_*` — run VibeMap's own generators
+
+The `author_*` prompts above run on **your** model: your agent does the thinking and VibeMap just stores the result. The `gen_*` prompts are the other half — they run VibeMap's hosted generation pipelines, the same ones behind the app's `/gen-…` slash commands. They are **metered** (they draw down the project owner's VibeMap token budget) and **asynchronous** (you get a `sessionId` back and poll `vibemap_get_generation_status`).
+
+| Prompt | Args | Description |
+|---|---|---|
+| `gen_personas` | `projectId` | Generate personas — who you're building for |
+| `gen_features` | `projectId` | Generate features — the set every story, page and table hangs off |
+| `gen_stories` | `projectId` | Generate user stories from your features |
+| `gen_criteria` | `projectId` | Derive acceptance criteria from features and stories |
+| `gen_pages` | `projectId` | Generate the page architecture from features and stories |
+| `gen_schema` | `projectId` | Generate the database schema — tables and relationships |
+| `gen_sync_criteria_from_pages` | `projectId` | Cross-check acceptance criteria against your page layouts |
 
 ## Documentation
 

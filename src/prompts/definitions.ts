@@ -29,6 +29,14 @@ const LOCAL_PATH_ARG = {
  */
 export const PROJECTLESS_PROMPTS = new Set(["new_project"]);
 
+/**
+ * Shared tail for every `gen_*` description. The leading sentence of each is the
+ * command's `summary` from the app's registry, verbatim, so the IDE picker and
+ * the in-app command picker read identically.
+ */
+const METERED_NOTE =
+  "Runs VibeMap's own generation pipeline — METERED: it uses VibeMap's models and draws down the project owner's token budget, unlike the author_* prompts which run on YOUR model. Asynchronous: the reply comes back with a sessionId to poll.";
+
 export const PROMPT_DEFINITIONS: Prompt[] = [
   {
     name: "new_project",
@@ -105,6 +113,62 @@ export const PROMPT_DEFINITIONS: Prompt[] = [
     name: "kanban",
     description:
       "Show the VibeMap kanban board for a project so your agent knows what to work on next.",
+    arguments: [PROJECT_ARG],
+  },
+
+  // ── gen_* — VibeMap's own generation commands (ENGINE B, metered) ───────────
+  //
+  // One entry per `kind: "generation"` slash command in the app's registry
+  // (lib/agent/commands/registry.ts). The app derives its `gen_*` prompt names
+  // from that same registry and serves the BODIES from GET /api/mcp/prompts, so
+  // this list is a MIRROR, not a second source of truth: a name that does not
+  // exist server-side is a prompt the IDE offers and the server 404s.
+  //
+  // Naming convention: `gen_` + the command name with any leading `gen-`
+  // stripped + `-` → `_`. So `gen-features` → `gen_features` (NOT
+  // `gen_gen_features`) and `sync-criteria-from-pages` →
+  // `gen_sync_criteria_from_pages`.
+  //
+  // DELIBERATELY OMITTED: `gen_business_case`. The app filters `gen-business-case`
+  // out of `listCommands()` unless RESEARCH_PHASE_STATIC_ENABLED is true, which is
+  // `process.env.NEXT_PUBLIC_RESEARCH_PHASE_ENABLED === "1"` — a BUILD-time flag
+  // that is OFF in production, because the research phase is gated off for MVP1.
+  // Advertising it here would make the IDE offer a prompt that /api/mcp/prompts
+  // does not build, i.e. a guaranteed 404. Add it when the research phase flips
+  // on (and only then).
+  {
+    name: "gen_personas",
+    description: `Generate personas — who you're building for. ${METERED_NOTE}`,
+    arguments: [PROJECT_ARG],
+  },
+  {
+    name: "gen_features",
+    description: `Generate features — the set every story, page and table hangs off. ${METERED_NOTE}`,
+    arguments: [PROJECT_ARG],
+  },
+  {
+    name: "gen_stories",
+    description: `Generate user stories from your features. ${METERED_NOTE}`,
+    arguments: [PROJECT_ARG],
+  },
+  {
+    name: "gen_criteria",
+    description: `Derive acceptance criteria from features and stories. ${METERED_NOTE}`,
+    arguments: [PROJECT_ARG],
+  },
+  {
+    name: "gen_pages",
+    description: `Generate the page architecture from features and stories. ${METERED_NOTE}`,
+    arguments: [PROJECT_ARG],
+  },
+  {
+    name: "gen_schema",
+    description: `Generate the database schema — tables and relationships. ${METERED_NOTE}`,
+    arguments: [PROJECT_ARG],
+  },
+  {
+    name: "gen_sync_criteria_from_pages",
+    description: `Cross-check acceptance criteria against your page layouts. ${METERED_NOTE}`,
     arguments: [PROJECT_ARG],
   },
 ];

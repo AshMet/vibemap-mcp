@@ -30,9 +30,15 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      # pnpm 11, resolved from the `packageManager` field in package.json — see
+      # .github/workflows/test.yml for why the pin moved off pnpm/action-setup's
+      # `version: 10` (D-296). actions/setup-node still runs below and wins on
+      # PATH, because `npm publish` needs the registry npmrc it writes.
+      - uses: pnpm/setup@84cb39b217b10273981911c288cd62326dc7c6d2 # v2.0.2
         with:
-          version: 10
+          runtime: node@20
+          cache: true
+          install: false
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -41,6 +47,11 @@ jobs:
 
       - name: Install deps
         run: pnpm install --frozen-lockfile
+
+      # The published tarball must be built from a tree whose security pins
+      # actually applied. Last gate before npm publish.
+      - name: Assert dependency overrides applied
+        run: pnpm run assert:overrides
 
       - name: Build
         run: pnpm build

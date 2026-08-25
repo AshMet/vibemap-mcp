@@ -13,17 +13,30 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      # pnpm 11, from the `packageManager` field in package.json — one pin, read
+      # by both CI and local dev, rather than a version literal here that can
+      # drift from what anyone actually runs.
+      #
+      # This used to be pnpm/action-setup pinned to `version: 10`, and that pin
+      # was load-bearing by accident: the security `overrides` lived in
+      # package.json's `pnpm` field, which pnpm 11 no longer reads (D-296). CI
+      # never saw the breakage because it never ran pnpm 11. The overrides now
+      # live in pnpm-workspace.yaml, so the pin is raised to the version the bug
+      # is about — pnpm/action-setup only installs pnpm 10 and older, hence
+      # pnpm/setup.
+      - uses: pnpm/setup@84cb39b217b10273981911c288cd62326dc7c6d2 # v2.0.2
         with:
-          version: 10
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 20
-          cache: pnpm
+          runtime: node@20
+          cache: true
+          install: false
 
       - name: Install deps
         run: pnpm install --frozen-lockfile
+
+      # Runs FIRST, right after install: it asserts the dependency pins actually
+      # applied to the tree that everything below is about to build and test.
+      - name: Assert dependency overrides applied
+        run: pnpm run assert:overrides
 
       # `build` runs `tsc`, which type-checks AND emits build/ — guaranteeing the
       # published artifact matches src. Catches the src/build drift that
