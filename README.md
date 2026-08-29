@@ -85,7 +85,7 @@ Same format as Cursor. Add to your Windsurf MCP settings file and restart.
 
 ## Tools
 
-The server exposes **36 tools** via the `vibemap_` prefix.
+The server exposes **39 tools** via the `vibemap_` prefix.
 
 **Projects & context**
 
@@ -142,10 +142,12 @@ The server exposes **36 tools** via the `vibemap_` prefix.
 |---|---|
 | `vibemap_get_kanban_board` | Get a real-time board view |
 | `vibemap_get_next_ready_criterion` | Get the highest-priority criterion ready to work on |
+| `vibemap_get_execution_plan` | Get the whole ordered build plan (topo-sorted, sprint-grouped, with ready/blocked state) |
 | `vibemap_claim_criterion` | Claim a criterion (`ready` → `in_progress`) |
 | `vibemap_report_progress` | Append a progress event to a criterion |
 | `vibemap_submit_for_review` | Submit a criterion for review (→ `review_pending`) |
 | `vibemap_resolve_review` | Resolve a review (`passed` / `failed`) |
+| `vibemap_ci_result` | Post a CI pipeline's outcome for a criterion in review (CI-scoped token; agents forbidden) |
 | `vibemap_block_criterion` | Block a criterion with a category and reason |
 | `vibemap_unblock_criterion` | Unblock a criterion with a resolution |
 | `vibemap_list_kanban_events` | Kanban transition history (for incremental sync) |

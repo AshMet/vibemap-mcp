@@ -431,6 +431,8 @@ const SyncChangesSchema = z.object({
 
 const GetNextReadyCriterionSchema = ProjectIdSchema;
 
+const GetExecutionPlanSchema = ProjectIdSchema;
+
 const ClaimCriterionSchema = z.object({
   criterionId: z.string().min(1, "criterionId is required"),
 });
@@ -451,6 +453,17 @@ const ResolveReviewSchema = z.object({
   criterionId: z.string().min(1, "criterionId is required"),
   outcome: z.enum(["passed", "failed"]),
   testRunUrl: z.string().optional(),
+  notes: z.string().max(2000).optional(),
+});
+
+// ci-result mirrors resolve-review but is the CI-driver surface: test_run_url is
+// REQUIRED evidence (route uses z.string().url()); we keep the client loose and
+// let the route validate the URL shape, matching SubmitForReviewSchema.diffUrl.
+const CiResultSchema = z.object({
+  criterionId: z.string().min(1, "criterionId is required"),
+  outcome: z.enum(["passed", "failed"]),
+  testRunUrl: z.string().min(1, "testRunUrl is required"),
+  gitSha: z.string().min(7, "gitSha must be at least 7 chars").optional(),
   notes: z.string().max(2000).optional(),
 });
 
@@ -1286,6 +1299,14 @@ export async function handleCallTool(request: CallToolRequest) {
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
 
+      // ── vibemap_get_execution_plan ─────────────────────────────────────────
+      case "vibemap_get_execution_plan": {
+        const parsed = GetExecutionPlanSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.getExecutionPlan(parsed.projectId);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
       // ── vibemap_claim_criterion ────────────────────────────────────────────
       case "vibemap_claim_criterion": {
         const parsed = ClaimCriterionSchema.parse(args);
@@ -1323,6 +1344,20 @@ export async function handleCallTool(request: CallToolRequest) {
           parsed.criterionId,
           parsed.outcome,
           parsed.testRunUrl,
+          parsed.notes
+        );
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      // ── vibemap_ci_result ──────────────────────────────────────────────────
+      case "vibemap_ci_result": {
+        const parsed = CiResultSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.ciResult(
+          parsed.criterionId,
+          parsed.outcome,
+          parsed.testRunUrl,
+          parsed.gitSha,
           parsed.notes
         );
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };

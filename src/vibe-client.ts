@@ -565,6 +565,20 @@ export class VibeMapClient {
     );
   }
 
+  /**
+   * Fetch the whole ordered build plan for a project: every acceptance criterion
+   * topologically sorted by hard dependencies and grouped by sprint, each with
+   * its ready/blocked state. The complement to getNextReadyCriterion — the full
+   * order of work in one call instead of one-at-a-time discovery. Read-only. If
+   * a hard-dependency cycle makes strict ordering impossible, the response's
+   * `cycle` names the members and the plan falls back to created-at order.
+   */
+  async getExecutionPlan(projectId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      `/api/mcp/kanban/projects/${projectId}/execution-plan`
+    );
+  }
+
   async claimCriterion(criterionId: string): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>(`/api/mcp/kanban/criterion/${criterionId}/claim`, {
       method: "POST",
@@ -600,6 +614,30 @@ export class VibeMapClient {
     return this.request<Record<string, unknown>>(
       `/api/mcp/kanban/criterion/${criterionId}/resolve-review`,
       { method: "POST", body: JSON.stringify({ outcome, test_run_url: testRunUrl, notes }) }
+    );
+  }
+
+  /**
+   * Post a CI pipeline's test outcome for a criterion in review (in_review →
+   * passed | failed) and record build evidence. A DISTINCT authenticated surface
+   * from resolveReview: the server resolves it as actor kind `ci`, so it needs a
+   * CI-scoped token (env_token:ci or a PAT with the `ci_review` scope). Agents
+   * (mcp actors) are rejected 403 — an agent must never resolve its own work.
+   * `testRunUrl` is required evidence.
+   */
+  async ciResult(
+    criterionId: string,
+    outcome: "passed" | "failed",
+    testRunUrl: string,
+    gitSha?: string,
+    notes?: string
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      `/api/mcp/kanban/criterion/${criterionId}/ci-result`,
+      {
+        method: "POST",
+        body: JSON.stringify({ outcome, test_run_url: testRunUrl, git_sha: gitSha, notes }),
+      }
     );
   }
 
