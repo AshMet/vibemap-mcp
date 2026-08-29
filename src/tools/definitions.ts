@@ -627,6 +627,19 @@ export const TOOL_DEFINITIONS: Tool[] = [
     },
   },
   {
+    name: "vibemap_get_execution_plan",
+    description:
+      "Get the whole ordered build plan for a project: every acceptance criterion topologically sorted by hard dependencies and grouped by sprint, each with its ready/blocked state and what it is blocked on. Use this to see the full order of work up front instead of discovering it one vibemap_get_next_ready_criterion call at a time. Read-only. If a hard-dependency cycle makes strict ordering impossible, `cycle` names the members and the plan falls back to created-at order.",
+    annotations: { readOnlyHint: true, destructiveHint: false },
+    inputSchema: {
+      type: "object",
+      required: ["projectId"],
+      properties: {
+        projectId: { type: "string", description: "Project UUID" },
+      },
+    },
+  },
+  {
     name: "vibemap_claim_criterion",
     description:
       "Atomically claim an acceptance criterion for implementation. Transitions ready → in_progress. Returns 409 (race) if another agent already claimed it.",
@@ -688,6 +701,23 @@ export const TOOL_DEFINITIONS: Tool[] = [
         outcome: { type: "string", enum: ["passed", "failed"] },
         testRunUrl: { type: "string" },
         notes: { type: "string" },
+      },
+    },
+  },
+  {
+    name: "vibemap_ci_result",
+    description:
+      "Post a CI pipeline's test outcome for a criterion in review. Transitions in_review → passed | failed and records build evidence. This is the CI-driver surface, DISTINCT from vibemap_resolve_review: it requires a CI-scoped token (env_token:ci or a PAT with the `ci_review` scope). Agents (env_token:agent / mcp actors) are rejected 403 — an agent must never resolve its own work. Requires the URL of the CI test run as evidence.",
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+    inputSchema: {
+      type: "object",
+      required: ["criterionId", "outcome", "testRunUrl"],
+      properties: {
+        criterionId: { type: "string" },
+        outcome: { type: "string", enum: ["passed", "failed"] },
+        testRunUrl: { type: "string", description: "URL of the CI test run (required evidence)" },
+        gitSha: { type: "string", description: "Commit SHA under test (7+ chars, optional)" },
+        notes: { type: "string", description: "Optional notes (max 2000 chars)" },
       },
     },
   },

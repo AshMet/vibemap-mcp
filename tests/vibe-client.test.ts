@@ -394,6 +394,92 @@ describe("VibeMapClient", () => {
     await expect(client.getReviewPlan("missing")).rejects.toThrow("Project not found");
   });
 
+  // ── Kanban tracker: execution plan (GET) + CI driver (POST) ─────────────────
+
+  it("calls /api/mcp/kanban/projects/{id}/execution-plan with the projectId", async () => {
+    let capturedUrl = "";
+    let capturedAuth = "";
+    const mockPlan = {
+      projectId: "proj-1",
+      total: 1,
+      cycle: null,
+      groups: [
+        {
+          sprintId: "sprint-1",
+          name: "Sprint 1",
+          position: 0,
+          criteria: [
+            { id: "ac-1", title: "Login", status: "ready", order: 0, ready: true, blockedOn: [] },
+          ],
+        },
+      ],
+    };
+    server.use(
+      http.get(`${baseUrl}/api/mcp/kanban/projects/proj-1/execution-plan`, ({ request }) => {
+        capturedUrl = request.url;
+        capturedAuth = request.headers.get("authorization") ?? "";
+        return HttpResponse.json(mockPlan);
+      })
+    );
+
+    const result = await client.getExecutionPlan("proj-1");
+    expect(capturedUrl).toContain("/api/mcp/kanban/projects/proj-1/execution-plan");
+    expect(capturedAuth).toBe(`Bearer ${apiKey}`);
+    expect(result).toEqual(mockPlan);
+  });
+
+  it("propagates server errors from the execution-plan route", async () => {
+    server.use(
+      http.get(`${baseUrl}/api/mcp/kanban/projects/missing/execution-plan`, () => {
+        return HttpResponse.json({ error: "Project not found" }, { status: 404 });
+      })
+    );
+
+    await expect(client.getExecutionPlan("missing")).rejects.toThrow("Project not found");
+  });
+
+  it("posts a CI result with outcome, test_run_url, git_sha and notes", async () => {
+    let capturedBody: any;
+    let capturedAuth = "";
+    server.use(
+      http.post(`${baseUrl}/api/mcp/kanban/criterion/ac-1/ci-result`, async ({ request }) => {
+        capturedBody = await request.json();
+        capturedAuth = request.headers.get("authorization") ?? "";
+        return HttpResponse.json({ event: { id: "evt-1", to_status: "passed" } });
+      })
+    );
+
+    const result = await client.ciResult(
+      "ac-1",
+      "passed",
+      "https://ci.example.com/run/42",
+      "abc1234",
+      "all green"
+    );
+    expect(capturedAuth).toBe(`Bearer ${apiKey}`);
+    expect(capturedBody.outcome).toBe("passed");
+    expect(capturedBody.test_run_url).toBe("https://ci.example.com/run/42");
+    expect(capturedBody.git_sha).toBe("abc1234");
+    expect(capturedBody.notes).toBe("all green");
+    expect((result as any).event.to_status).toBe("passed");
+  });
+
+  it("omits git_sha and notes from the CI result body when not provided", async () => {
+    let capturedBody: any;
+    server.use(
+      http.post(`${baseUrl}/api/mcp/kanban/criterion/ac-2/ci-result`, async ({ request }) => {
+        capturedBody = await request.json();
+        return HttpResponse.json({ event: { id: "evt-2", to_status: "failed" } });
+      })
+    );
+
+    await client.ciResult("ac-2", "failed", "https://ci.example.com/run/7");
+    expect(capturedBody.outcome).toBe("failed");
+    expect(capturedBody.test_run_url).toBe("https://ci.example.com/run/7");
+    expect("git_sha" in capturedBody).toBe(false);
+    expect("notes" in capturedBody).toBe(false);
+  });
+
   it("calls /api/mcp/changesets with projectId and forwards limit + includeOps", async () => {
     let capturedUrl = "";
     const mockChangesets = {
