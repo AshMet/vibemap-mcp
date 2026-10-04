@@ -624,12 +624,10 @@ describe("VibeMapClient", () => {
 
   // ── mcp-error-detail-swallowed ───────────────────────────────────────────────
   //
-  // app/api/mcp/** routes in the main app put the actionable validation detail
-  // in a sibling `issues` array (route-factory.ts, code-map/route.ts) or
-  // `details` object (atomic-blueprint/route.ts, access-rules/route.ts,
-  // review-plan/route.ts, changesets/route.ts, prompts/route.ts) next to
-  // `error`. Before this fix, request() read only `error`, so a 422 collapsed
-  // to a bare label with no indication of which field was wrong.
+  // The backend's API routes put the actionable validation detail in a
+  // sibling `issues` array or `details` object next to `error`. Before this
+  // fix, request() read only `error`, so a 422 collapsed to a bare label
+  // with no indication of which field was wrong.
 
   describe("validation error detail surfacing", () => {
     it("appends a ZodIssue[] `issues` array to the thrown message", async () => {

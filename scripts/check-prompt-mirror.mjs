@@ -3,11 +3,10 @@
  * mcp-gen-prompt-list-unenforced-mirror guard.
  *
  * `src/prompts/definitions.ts` hardcodes a static mirror of the `gen_*`
- * prompt names the main VibeMap app derives DYNAMICALLY from `listCommands()`
- * (see `app/api/mcp/prompts/route.ts` in `AshMet/VibePlan`). The two lists
- * agree today; nothing enforces they keep agreeing — a command added or
- * removed on either side silently drifts (a 404 at `prompts/get`, or a gap
- * the IDE never offers).
+ * prompt names the main VibeMap app's backend derives dynamically from its
+ * own command registry. The two lists agree today; nothing enforces they
+ * keep agreeing — a command added or removed on either side silently drifts
+ * (a 404 at `prompts/get`, or a gap the IDE never offers).
  *
  * This repo cannot see that other repo's live registry from CI without a
  * network call, and the endpoint that *would* answer it
@@ -173,7 +172,7 @@ async function main() {
   );
   console.log(
     "check-prompt-mirror: reminder — true cross-repo drift detection still needs a counterpart " +
-      "check in AshMet/VibePlan (see the top-of-file comment)."
+      "check on the backend side (see the top-of-file comment)."
   );
 }
 

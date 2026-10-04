@@ -7,12 +7,12 @@ export interface VibeConfig {
 
 // ─── Error detail rendering ────────────────────────────────────────────────
 //
-// `app/api/mcp/**` routes in the main VibeMap app put the actionable detail
-// of a validation failure in one of two sibling fields next to `error`,
-// depending on which helper built the response:
-//   - `issues`:  a raw ZodIssue[] (e.g. route-factory.ts, code-map/route.ts)
+// The backend's API routes put the actionable detail of a validation
+// failure in one of two sibling fields next to `error`, depending on which
+// helper built the response:
+//   - `issues`:  a raw ZodIssue[]
 //   - `details`: ZodError.format()'s nested { field: { _errors: [...] } }
-//     tree (e.g. atomic-blueprint/route.ts, access-rules/route.ts)
+//     tree
 // Without reading these, a 422 collapses to a bare "Invalid payload" with no
 // indication of which field was wrong. Both are rendered into the same
 // compact "path: message" form so callers see one shape either way.
