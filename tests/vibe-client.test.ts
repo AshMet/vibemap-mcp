@@ -621,4 +621,84 @@ describe("VibeMapClient", () => {
       await expect(client.listProjects()).rejects.not.toThrow(/VIBEMAP_API_KEY/);
     });
   });
+
+  // ── mcp-error-detail-swallowed ───────────────────────────────────────────────
+  //
+  // The backend's API routes put the actionable validation detail in a
+  // sibling `issues` array or `details` object next to `error`. Before this
+  // fix, request() read only `error`, so a 422 collapsed to a bare label
+  // with no indication of which field was wrong.
+
+  describe("validation error detail surfacing", () => {
+    it("appends a ZodIssue[] `issues` array to the thrown message", async () => {
+      server.use(
+        http.post(`${baseUrl}/api/mcp/code-map`, () =>
+          HttpResponse.json(
+            {
+              error: "invalid_payload",
+              issues: [
+                { path: ["projectId"], message: "Required" },
+                { path: ["map", "nodes"], message: "Expected array, received undefined" },
+              ],
+            },
+            { status: 422 }
+          )
+        )
+      );
+
+      await expect(client.submitCodeMap("proj-1", {})).rejects.toThrow(/invalid_payload/);
+      await expect(client.submitCodeMap("proj-1", {})).rejects.toThrow(/projectId: Required/);
+      await expect(client.submitCodeMap("proj-1", {})).rejects.toThrow(
+        /map\.nodes: Expected array, received undefined/
+      );
+    });
+
+    it("appends a ZodError.format() `details` object to the thrown message", async () => {
+      server.use(
+        http.get(`${baseUrl}/api/mcp/atomic-blueprint`, () =>
+          HttpResponse.json(
+            {
+              error: "Invalid query",
+              details: {
+                projectId: { _errors: ["Invalid uuid"] },
+                _errors: [],
+              },
+            },
+            { status: 400 }
+          )
+        )
+      );
+
+      await expect(client.getAtomicBlueprint("not-a-uuid")).rejects.toThrow(/Invalid query/);
+      await expect(client.getAtomicBlueprint("not-a-uuid")).rejects.toThrow(
+        /projectId: Invalid uuid/
+      );
+    });
+
+    it("still embellishes 401s with the per-instance rule AND any issues present", async () => {
+      server.use(
+        http.get(`${baseUrl}/api/crud/projects`, () =>
+          HttpResponse.json(
+            { error: "Unauthorized", issues: [{ path: ["apiKey"], message: "revoked" }] },
+            { status: 401 }
+          )
+        )
+      );
+
+      await expect(client.listProjects()).rejects.toThrow(/apiKey: revoked/);
+      await expect(client.listProjects()).rejects.toThrow(/only valid on the VibeMap instance/);
+    });
+
+    it("leaves the message unchanged when neither issues nor details is present", async () => {
+      server.use(
+        http.get(`${baseUrl}/api/crud/projects`, () =>
+          HttpResponse.json({ error: "Project not found" }, { status: 404 })
+        )
+      );
+
+      await expect(client.listProjects()).rejects.toThrow("Project not found");
+      // No stray "(undefined)" or empty-parens suffix.
+      await expect(client.listProjects()).rejects.not.toThrow(/\(\)/);
+    });
+  });
 });

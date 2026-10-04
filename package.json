@@ -46,7 +46,8 @@
     "prepublishOnly": "npm run build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "assert:overrides": "node scripts/assert-overrides.mjs"
+    "assert:overrides": "node scripts/assert-overrides.mjs",
+    "check:prompt-mirror": "node scripts/check-prompt-mirror.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",

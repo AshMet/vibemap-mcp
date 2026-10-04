@@ -5,6 +5,58 @@ export interface VibeConfig {
   apiKey: string;
 }
 
+// ─── Error detail rendering ────────────────────────────────────────────────
+//
+// The backend's API routes put the actionable detail of a validation
+// failure in one of two sibling fields next to `error`, depending on which
+// helper built the response:
+//   - `issues`:  a raw ZodIssue[]
+//   - `details`: ZodError.format()'s nested { field: { _errors: [...] } }
+//     tree
+// Without reading these, a 422 collapses to a bare "Invalid payload" with no
+// indication of which field was wrong. Both are rendered into the same
+// compact "path: message" form so callers see one shape either way.
+
+function renderZodIssues(issues: unknown): string | undefined {
+  if (!Array.isArray(issues) || issues.length === 0) return undefined;
+  const parts = issues.slice(0, 10).map((issue) => {
+    if (issue && typeof issue === "object") {
+      const i = issue as { path?: unknown; message?: unknown };
+      const path = Array.isArray(i.path) && i.path.length > 0 ? i.path.join(".") : "(root)";
+      const message = typeof i.message === "string" ? i.message : JSON.stringify(i);
+      return `${path}: ${message}`;
+    }
+    return String(issue);
+  });
+  return parts.length > 0 ? parts.join("; ") : undefined;
+}
+
+function renderZodFormatted(details: unknown): string | undefined {
+  if (!details || typeof details !== "object") return undefined;
+  const parts: string[] = [];
+  const walk = (node: unknown, path: string) => {
+    if (!node || typeof node !== "object") return;
+    const obj = node as Record<string, unknown>;
+    if (Array.isArray(obj._errors) && obj._errors.length > 0) {
+      parts.push(`${path || "(root)"}: ${(obj._errors as unknown[]).join(", ")}`);
+    }
+    for (const [key, value] of Object.entries(obj)) {
+      if (key === "_errors") continue;
+      walk(value, path ? `${path}.${key}` : key);
+    }
+  };
+  walk(details, "");
+  return parts.length > 0 ? parts.join("; ") : undefined;
+}
+
+/** Appends a compact rendering of `issues`/`details` to a base error message,
+ * if either is present on the parsed error body. Returns `message` unchanged
+ * otherwise. */
+function withErrorDetail(message: string, errorBody: Record<string, unknown>): string {
+  const detail = renderZodIssues(errorBody.issues) ?? renderZodFormatted(errorBody.details);
+  return detail ? `${message} (${detail})` : message;
+}
+
 // ─── Status types that match the real backend schemas ────────────────────────
 
 export type FeatureStatus = "draft" | "open" | "in_progress" | "completed";
@@ -244,21 +296,22 @@ export class VibeMapClient {
 
       if (!response.ok) {
         const errorBody = await response.json().catch(() => ({ error: response.statusText }));
-        const message =
-          ((errorBody as Record<string, unknown>).error as string) || `HTTP ${response.status}`;
+        const body = errorBody as Record<string, unknown>;
+        const message = (body.error as string) || `HTTP ${response.status}`;
+        const fullMessage = withErrorDetail(message, body);
         // A bare "Unauthorized" is the most confusing failure this server can
         // produce: it names neither the host that rejected the key nor the reason.
         // Tokens are per-instance, so a key issued by a local VibeMap fails against
         // vibemap.ai (and vice versa) — as does a project id from the other one.
         if (response.status === 401) {
           throw new Error(
-            `${message} — ${this.config.baseUrl} rejected this VIBEMAP_API_KEY. ` +
+            `${fullMessage} — ${this.config.baseUrl} rejected this VIBEMAP_API_KEY. ` +
               `Keys are only valid on the VibeMap instance that issued them: confirm this key ` +
               `came from ${this.config.baseUrl} (Account -> Developer) and was not revoked, and ` +
               `that VIBEMAP_BASE_URL points at that same instance.`
           );
         }
-        throw new Error(message);
+        throw new Error(fullMessage);
       }
 
       return response.json() as Promise<T>;

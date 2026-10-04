@@ -44,5 +44,15 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Self-consistency guard for the gen_* prompt mirror
+      # (mcp-gen-prompt-list-unenforced-mirror): src/prompts/definitions.ts
+      # hardcodes a copy of the gen_* names the main VibeMap app derives
+      # dynamically from listCommands(). This cannot see that app's live
+      # registry from CI (no reachable unauthenticated endpoint), so it only
+      # catches an internally inconsistent edit to the mirror in THIS repo —
+      # see the script's header comment for the known cross-repo gap.
+      - name: Check prompt mirror self-consistency
+        run: pnpm run check:prompt-mirror
+
       - name: Run tests
         run: pnpm test
