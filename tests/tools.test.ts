@@ -42,6 +42,8 @@ vi.mock("../src/vibe-client", () => {
         updateAcceptanceCriterion: vi.fn(),
         submitTask: vi.fn(),
         getTaskStatus: vi.fn(),
+        submitForReview: vi.fn(),
+        resolveReview: vi.fn(),
       };
     }),
   };
@@ -84,6 +86,8 @@ const stableMockClient = {
   updateAcceptanceCriterion: vi.fn(),
   submitTask: vi.fn(),
   getTaskStatus: vi.fn(),
+  submitForReview: vi.fn(),
+  resolveReview: vi.fn(),
 };
 
 // Regular function (not an arrow): vitest 4 invokes mock implementations with
@@ -1375,6 +1379,89 @@ describe("MCP Tools", () => {
     it("throws on missing projectId", async () => {
       await expect(handleCallTool(makeRequest("vibemap_get_kanban_board", {}))).rejects.toThrow(
         McpError
+      );
+    });
+  });
+
+  // ── mcp-submit-review-url-not-validated ──────────────────────────────────────
+  //
+  // The backend (lib/kanban/payloads.ts in the main app) requires diffUrl /
+  // test_run_url to be z.string().url() — a non-URL string used to pass this
+  // client's plain z.string() check and round-trip to a 422 whose detail was
+  // (pre mcp-error-detail-swallowed) also lost. These assert the stricter
+  // local schema rejects a non-URL string fast, before any network call.
+
+  describe("vibemap_submit_for_review", () => {
+    it("rejects a diffUrl that is not a URL", async () => {
+      await expect(
+        handleCallTool(
+          makeRequest("vibemap_submit_for_review", {
+            criterionId: "c1",
+            gitSha: "abc1234",
+            diffUrl: "not-a-url",
+          })
+        )
+      ).rejects.toThrow(McpError);
+    });
+
+    it("accepts a well-formed diffUrl", async () => {
+      stableMockClient.submitForReview.mockResolvedValue({ status: "in_review" });
+      const result = await handleCallTool(
+        makeRequest("vibemap_submit_for_review", {
+          criterionId: "c1",
+          gitSha: "abc1234",
+          diffUrl: "https://github.com/org/repo/pull/1",
+        })
+      );
+      expect(result.content[0].text).toContain("in_review");
+      expect(stableMockClient.submitForReview).toHaveBeenCalledWith(
+        "c1",
+        "abc1234",
+        "https://github.com/org/repo/pull/1",
+        undefined
+      );
+    });
+  });
+
+  describe("vibemap_resolve_review", () => {
+    it("rejects a testRunUrl that is not a URL", async () => {
+      await expect(
+        handleCallTool(
+          makeRequest("vibemap_resolve_review", {
+            criterionId: "c1",
+            outcome: "passed",
+            testRunUrl: "not-a-url",
+          })
+        )
+      ).rejects.toThrow(McpError);
+    });
+
+    it("allows testRunUrl to be omitted", async () => {
+      stableMockClient.resolveReview.mockResolvedValue({ status: "completed" });
+      const result = await handleCallTool(
+        makeRequest("vibemap_resolve_review", {
+          criterionId: "c1",
+          outcome: "passed",
+        })
+      );
+      expect(result.content[0].text).toContain("completed");
+    });
+
+    it("accepts a well-formed testRunUrl", async () => {
+      stableMockClient.resolveReview.mockResolvedValue({ status: "completed" });
+      const result = await handleCallTool(
+        makeRequest("vibemap_resolve_review", {
+          criterionId: "c1",
+          outcome: "passed",
+          testRunUrl: "https://ci.example.com/runs/42",
+        })
+      );
+      expect(result.content[0].text).toContain("completed");
+      expect(stableMockClient.resolveReview).toHaveBeenCalledWith(
+        "c1",
+        "passed",
+        "https://ci.example.com/runs/42",
+        undefined
       );
     });
   });

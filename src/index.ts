@@ -443,14 +443,14 @@ const ReportProgressSchema = z.object({
 const SubmitForReviewSchema = z.object({
   criterionId: z.string().min(1, "criterionId is required"),
   gitSha: z.string().min(7, "gitSha must be at least 7 chars"),
-  diffUrl: z.string().min(1, "diffUrl is required"),
+  diffUrl: z.string().min(1, "diffUrl is required").url("diffUrl must be a valid URL"),
   notes: z.string().max(2000).optional(),
 });
 
 const ResolveReviewSchema = z.object({
   criterionId: z.string().min(1, "criterionId is required"),
   outcome: z.enum(["passed", "failed"]),
-  testRunUrl: z.string().optional(),
+  testRunUrl: z.string().url("testRunUrl must be a valid URL").optional(),
   notes: z.string().max(2000).optional(),
 });
 
