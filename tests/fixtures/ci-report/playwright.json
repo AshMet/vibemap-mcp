@@ -1,0 +1,26 @@
+{
+  "config": {},
+  "suites": [
+    {
+      "title": "checkout.spec.ts",
+      "file": "checkout.spec.ts",
+      "specs": [],
+      "suites": [
+        {
+          "title": "checkout",
+          "specs": [
+            { "title": "[AC-060] pays by card", "ok": true, "tests": [{ "status": "expected", "results": [{ "status": "passed" }] }] },
+            { "title": "[AC-061] shows the receipt", "ok": false, "tests": [{ "status": "unexpected", "results": [{ "status": "failed" }] }] },
+            { "title": "[AC-062] retries once", "ok": true, "tests": [{ "status": "flaky", "results": [{ "status": "failed" }, { "status": "passed" }] }] },
+            { "title": "[AC-063] later", "ok": true, "tests": [{ "status": "skipped", "results": [] }] }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "top.spec.ts",
+      "specs": [{ "title": "[AC-064] top level", "ok": true, "tests": [{ "status": "expected", "results": [{ "status": "passed" }] }] }],
+      "suites": []
+    }
+  ]
+}

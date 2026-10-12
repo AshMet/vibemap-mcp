@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="9" failures="2" errors="0" time="1.2">
+    <testsuite name="tests/unit/title.test.ts" timestamp="2026-10-12T10:00:00.000Z" hostname="ci" tests="6" failures="1" errors="0" skipped="1" time="0.4">
+        <testcase classname="tests/unit/title.test.ts" name="title &gt; [AC-042] rejects an empty title" time="0.01">
+        </testcase>
+        <testcase classname="tests/unit/title.test.ts" name="title &gt; [AC-042] trims &amp; collapses spaces" time="0.01"/>
+        <testcase classname="tests/unit/title.test.ts" name="title &gt; [AC-043] caps length at 80" time="0.02">
+            <failure message="expected 81 to be 80" type="AssertionError">
+                <![CDATA[ AssertionError: expected 81 to be 80
+                <testcase name="[AC-999] this is inside a failure body and must be ignored"/>
+                ]]>
+            </failure>
+        </testcase>
+        <testcase classname="tests/unit/title.test.ts" name="title &gt; [AC-044] [AC-045] shared helper" time="0.01"/>
+        <testcase classname="tests/unit/title.test.ts" name="title &gt; [AC-046] not built yet" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="tests/unit/title.test.ts" name="title &gt; untagged helper test" time="0.01"/>
+    </testsuite>
+    <testsuite name="tests/unit/flaky.test.ts" tests="3" failures="1" errors="0" skipped="0" time="0.2">
+        <testcase classname="tests/unit/flaky.test.ts" name="[AC-050] recovers after a retry" time="0.05">
+            <flakyFailure message="first attempt failed" type="Error">stack</flakyFailure>
+            <system-out><![CDATA[<testcase name="[AC-998] noise"/>]]></system-out>
+        </testcase>
+        <testcase classname="tests/unit/flaky.test.ts" name="[AC-051] throws on bad input" time="0.05">
+            <error message="boom" type="TypeError"/>
+        </testcase>
+        <!-- <testcase name="[AC-997] commented out"/> -->
+        <testcase classname="tests/unit/flaky.test.ts" name="[AC-052] 'quoted' &quot;name&quot; &#65;" time="0.05"/>
+    </testsuite>
+</testsuites>
