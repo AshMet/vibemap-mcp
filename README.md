@@ -202,6 +202,23 @@ The `author_*` prompts above run on **your** model: your agent does the thinking
 | `gen_schema` | `projectId` | Generate the database schema — tables and relationships |
 | `gen_sync_criteria_from_pages` | `projectId` | Cross-check acceptance criteria against your page layouts |
 
+## Reporting test results from CI
+
+`ci-report` turns a test run into review results. Tag each test name with the acceptance criterion it proves, for example `[AC-042] rejects an empty title`. After the run, post the report:
+
+```bash
+VIBEMAP_CI_TOKEN=... npx @vibemap.ai/mcp-server ci-report \
+  --junit junit.xml --project <project-id>
+```
+
+Every criterion that is in review and mentioned by the report is resolved from its own tests: passed when all of them passed, failed when any failed (the failing test names go back to the agent). Criteria that are not in review, or are unknown, are listed and left alone.
+
+- Formats: `--junit` (JUnit XML), `--vitest` and `--playwright` (each tool's JSON reporter). Pass several to combine them.
+- `VIBEMAP_CI_TOKEN` must be a CI-review token (Account, Developer, scope "CI review"). An agent token is refused.
+- The run URL and commit are picked up automatically on GitHub Actions; otherwise pass `--run-url` and `--sha`.
+- Exit codes: `0` reported, `1` the server rejected the report or could not be reached, `2` bad usage, `3` no tagged tests with `--strict`.
+- `--dry-run` prints the request without sending it.
+
 ## Documentation
 
 Full docs at [vibemap.ai/docs/developer-docs/mcp-server/introduction](https://vibemap.ai/docs/developer-docs/mcp-server/introduction)

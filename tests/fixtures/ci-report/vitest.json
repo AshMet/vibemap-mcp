@@ -1,0 +1,15 @@
+{
+  "numTotalTests": 4,
+  "testResults": [
+    {
+      "name": "/repo/tests/unit/title.test.ts",
+      "status": "failed",
+      "assertionResults": [
+        { "ancestorTitles": ["title"], "fullName": "title [AC-042] rejects an empty title", "status": "passed", "title": "[AC-042] rejects an empty title" },
+        { "ancestorTitles": ["title"], "fullName": "title [AC-043] caps length at 80", "status": "failed", "title": "[AC-043] caps length at 80" },
+        { "ancestorTitles": ["title"], "status": "pending", "title": "[AC-046] not built yet" },
+        { "ancestorTitles": ["title"], "fullName": "title untagged", "status": "todo", "title": "untagged" }
+      ]
+    }
+  ]
+}

@@ -6,7 +6,7 @@
   "main": "build/index.js",
   "type": "module",
   "bin": {
-    "vibemap-mcp": "build/index.js"
+    "vibemap-mcp": "build/cli.js"
   },
   "engines": {
     "node": ">=18"
