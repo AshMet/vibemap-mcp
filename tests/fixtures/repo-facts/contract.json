@@ -1,0 +1,295 @@
+{
+  "version": 1,
+  "commit_sha": null,
+  "stack": {
+    "framework": "nextjs",
+    "db": "postgres"
+  },
+  "tables": [
+    {
+      "name": "comments",
+      "columns": [
+        {
+          "name": "id",
+          "type": "bigint",
+          "nullable": false
+        },
+        {
+          "name": "post_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "author_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "body",
+          "type": "text",
+          "nullable": false
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "post_id"
+          ],
+          "references": {
+            "table": "posts",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "CASCADE"
+        },
+        {
+          "columns": [
+            "author_id"
+          ],
+          "references": {
+            "table": "profiles",
+            "columns": [
+              "id"
+            ]
+          }
+        }
+      ],
+      "source_file": "supabase/migrations/20240101000000_init.sql"
+    },
+    {
+      "name": "posts",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false,
+          "default": "gen_random_uuid()"
+        },
+        {
+          "name": "author_id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "title",
+          "type": "varchar(200)",
+          "nullable": false
+        },
+        {
+          "name": "body",
+          "type": "text",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "type": "text",
+          "nullable": false,
+          "default": "'draft'"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "published_at",
+          "type": "timestamptz",
+          "nullable": true
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "author_id"
+          ],
+          "references": {
+            "table": "profiles",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "CASCADE"
+        }
+      ],
+      "source_file": "supabase/migrations/20240101000000_init.sql"
+    },
+    {
+      "name": "profiles",
+      "columns": [
+        {
+          "name": "id",
+          "type": "uuid",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "type": "text",
+          "nullable": false,
+          "check": "char_length(name) > 0"
+        },
+        {
+          "name": "created_at",
+          "type": "timestamptz",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "columns": [
+            "id"
+          ],
+          "references": {
+            "table": "auth.users",
+            "columns": [
+              "id"
+            ]
+          },
+          "on_delete": "CASCADE"
+        }
+      ],
+      "source_file": "supabase/migrations/20240101000000_init.sql"
+    }
+  ],
+  "policies": [
+    {
+      "table": "comments",
+      "name": "Comment authors insert",
+      "command": "INSERT",
+      "roles": [
+        "authenticated"
+      ],
+      "source_file": "supabase/migrations/20240201000000_publishing.sql",
+      "with_check": "auth.uid() = author_id"
+    },
+    {
+      "table": "posts",
+      "name": "Anyone can read published posts",
+      "command": "SELECT",
+      "roles": [
+        "anon",
+        "authenticated"
+      ],
+      "source_file": "supabase/migrations/20240101000000_init.sql",
+      "using": "status = 'published'"
+    },
+    {
+      "table": "posts",
+      "name": "Authors manage their posts",
+      "command": "ALL",
+      "roles": [
+        "authenticated"
+      ],
+      "source_file": "supabase/migrations/20240101000000_init.sql",
+      "using": "auth.uid() = author_id",
+      "with_check": "auth.uid() = author_id"
+    }
+  ],
+  "routes": [
+    {
+      "path": "/",
+      "kind": "page",
+      "file": "app/page.tsx",
+      "dynamic_segments": []
+    },
+    {
+      "path": "/about",
+      "kind": "page",
+      "file": "app/(marketing)/about/page.tsx",
+      "dynamic_segments": []
+    },
+    {
+      "path": "/api/posts",
+      "kind": "api",
+      "file": "app/api/posts/route.ts",
+      "dynamic_segments": [],
+      "methods": [
+        "GET",
+        "POST"
+      ]
+    },
+    {
+      "path": "/api/posts/[id]/comments",
+      "kind": "api",
+      "file": "app/api/posts/[id]/comments/route.ts",
+      "dynamic_segments": [
+        "id"
+      ],
+      "methods": [
+        "GET"
+      ]
+    },
+    {
+      "path": "/posts",
+      "kind": "page",
+      "file": "app/posts/page.tsx",
+      "dynamic_segments": []
+    },
+    {
+      "path": "/posts/[id]",
+      "kind": "page",
+      "file": "app/posts/[id]/page.tsx",
+      "dynamic_segments": [
+        "id"
+      ]
+    }
+  ],
+  "clusters": [
+    {
+      "id": "about",
+      "files": [
+        "app/(marketing)/about/page.tsx"
+      ],
+      "route_paths": [
+        "/about"
+      ],
+      "tables": []
+    },
+    {
+      "id": "home",
+      "files": [
+        "app/_components/Shell.tsx",
+        "app/page.tsx"
+      ],
+      "route_paths": [
+        "/"
+      ],
+      "tables": []
+    },
+    {
+      "id": "posts",
+      "files": [
+        "app/api/posts/[id]/comments/route.ts",
+        "app/api/posts/route.ts",
+        "app/posts/[id]/page.tsx",
+        "app/posts/page.tsx",
+        "components/PostCard.tsx",
+        "lib/comments.ts",
+        "lib/db.ts",
+        "lib/posts.ts"
+      ],
+      "route_paths": [
+        "/api/posts",
+        "/api/posts/[id]/comments",
+        "/posts",
+        "/posts/[id]"
+      ],
+      "tables": [
+        "comments",
+        "posts"
+      ]
+    }
+  ],
+  "warnings": []
+}

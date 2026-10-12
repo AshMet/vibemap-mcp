@@ -1,0 +1,5 @@
+{
+  "name": "fixture-next-prisma",
+  "private": true,
+  "dependencies": { "@prisma/client": "^5.0.0", "next": "^14.0.0" }
+}

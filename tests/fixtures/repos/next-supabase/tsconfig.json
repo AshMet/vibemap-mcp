@@ -1,0 +1,7 @@
+{
+  // Path alias used by the app code.
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": { "@/*": ["./*"] },
+  }
+}

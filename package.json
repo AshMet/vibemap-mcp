@@ -52,6 +52,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
     "node-fetch": "^3.3.2",
+    "pgsql-ast-parser": "^12.0.2",
     "zod": "^4.3.5"
   },
   "devDependencies": {
