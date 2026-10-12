@@ -134,7 +134,7 @@ The server exposes **36 tools** via the `vibemap_` prefix.
 |---|---|
 | `vibemap_list_acceptance_criteria` | Fetch BDD criteria |
 | `vibemap_create_acceptance_criterion` | Create a BDD acceptance criterion |
-| `vibemap_update_acceptance_criterion` | Update or mark criteria passed/failed (validates transitions) |
+| `vibemap_update_acceptance_criterion` | Update a criterion's content (Given/When/Then, description). Status is not writable here: use the lifecycle tools below |
 
 **Kanban — board & agentic lifecycle**
 

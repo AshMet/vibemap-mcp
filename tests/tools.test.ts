@@ -560,6 +560,90 @@ describe("MCP Tools", () => {
     });
   });
 
+  // ── Acceptance-criterion status is not an agent-writable field ──────────────
+  describe("acceptance-criterion tool schemas", () => {
+    async function tool(name: string) {
+      const { tools } = await handleListTools();
+      const t = tools.find((x: { name: string }) => x.name === name);
+      expect(t, name).toBeDefined();
+      return t as { description: string; inputSchema: { properties: Record<string, any> } };
+    }
+
+    it("create has no status input", async () => {
+      expect((await tool("vibemap_create_acceptance_criterion")).inputSchema.properties).not.toHaveProperty(
+        "status"
+      );
+    });
+
+    it("update has no status input", async () => {
+      expect((await tool("vibemap_update_acceptance_criterion")).inputSchema.properties).not.toHaveProperty(
+        "status"
+      );
+    });
+
+    it("update no longer tells the agent to mark itself passed", async () => {
+      const d = (await tool("vibemap_update_acceptance_criterion")).description;
+      expect(d).not.toMatch(/use status 'passed'/i);
+      expect(d).toContain("vibemap_submit_for_review");
+    });
+
+    it("no criterion tool advertises the non-existent 'pending' status", async () => {
+      const { tools } = await handleListTools();
+      for (const t of tools as Array<{ name: string; inputSchema: any }>) {
+        if (!t.name.includes("criteri")) continue;
+        const status = t.inputSchema?.properties?.status;
+        if (status?.enum) expect(status.enum, t.name).not.toContain("pending");
+      }
+    });
+
+    it("the list filter offers the real status set", async () => {
+      const status = (await tool("vibemap_list_acceptance_criteria")).inputSchema.properties.status;
+      expect(status.enum).toEqual([
+        "draft",
+        "ready",
+        "in_progress",
+        "in_review",
+        "passed",
+        "failed",
+        "blocked",
+      ]);
+    });
+
+    it("the deprecated kanban tool no longer documents criterion stages", async () => {
+      const d = (await tool("vibemap_update_kanban_status")).description;
+      expect(d).not.toMatch(/Criterion stages/);
+      expect(d).toContain("vibemap_claim_criterion");
+    });
+
+    it("create sends a draft criterion and no status, whatever the caller passes", async () => {
+      stableMockClient.createAcceptanceCriterion.mockResolvedValue({ id: "ac1" });
+      await handleCallTool(
+        makeRequest("vibemap_create_acceptance_criterion", {
+          storyId: "s1",
+          givenCondition: "g",
+          whenAction: "w",
+          thenOutcome: "t",
+        })
+      );
+      const sent = stableMockClient.createAcceptanceCriterion.mock.calls[0][0];
+      expect(sent).not.toHaveProperty("status");
+    });
+
+    it("create refuses an explicit non-draft status", async () => {
+      const result = await handleCallTool(
+        makeRequest("vibemap_create_acceptance_criterion", {
+          storyId: "s1",
+          givenCondition: "g",
+          whenAction: "w",
+          thenOutcome: "t",
+          status: "passed",
+        })
+      );
+      expect(result.isError).toBe(true);
+      expect(stableMockClient.createAcceptanceCriterion).not.toHaveBeenCalled();
+    });
+  });
+
   // ── vibemap_get_project_context ──────────────────────────────────────────────
   describe("vibemap_get_project_context", () => {
     it("returns project context with features and stories", async () => {
@@ -628,6 +712,24 @@ describe("MCP Tools", () => {
       expect(p.target_audience.secondary).toBeUndefined();
       expect(p.constraints.budget).toBeUndefined();
       expect(p.constraints.technical).toBe("TS only"); // kept
+    });
+
+    it("does not leak app_architecture (can run to 100k+ characters)", async () => {
+      stableMockClient.getProject.mockResolvedValue({
+        id: "proj-1",
+        name: "P",
+        app_architecture: { version: 2, blob: "x".repeat(150_000) },
+        analysis: { features: [], personas: [] },
+      });
+      stableMockClient.listUserStories.mockResolvedValue({ user_stories: [] });
+      stableMockClient.listFeatures.mockResolvedValue({ features: [] });
+
+      const result = await handleCallTool(
+        makeRequest("vibemap_get_project_context", { projectId: "proj-1" })
+      );
+      const data = JSON.parse(result.content[0].text);
+      expect(data.project.app_architecture).toBeUndefined();
+      expect(result.content[0].text.length).toBeLessThan(5_000);
     });
 
     it("throws McpError with absent projectId", async () => {
@@ -1032,13 +1134,7 @@ describe("MCP Tools", () => {
 
   // ── vibemap_update_acceptance_criterion ──────────────────────────────────────
   describe("vibemap_update_acceptance_criterion", () => {
-    it("marks a criterion as passed", async () => {
-      stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "in_review" });
-      stableMockClient.updateAcceptanceCriterion.mockResolvedValue({
-        id: "ac1",
-        status: "passed",
-      });
-
+    it("refuses to mark a criterion passed: that verdict is not the agent's to give", async () => {
       const result = await handleCallTool(
         makeRequest("vibemap_update_acceptance_criterion", {
           criterionId: "ac1",
@@ -1046,30 +1142,32 @@ describe("MCP Tools", () => {
         })
       );
 
-      const data = JSON.parse(result.content[0].text);
-      expect(data.status).toBe("passed");
-      expect(stableMockClient.updateAcceptanceCriterion).toHaveBeenCalledWith(
-        "ac1",
-        expect.objectContaining({ status: "passed" })
-      );
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain("vibemap_submit_for_review");
+      expect(stableMockClient.updateAcceptanceCriterion).not.toHaveBeenCalled();
     });
 
-    it("marks a criterion as failed", async () => {
-      stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "in_review" });
-      stableMockClient.updateAcceptanceCriterion.mockResolvedValue({
-        id: "ac1",
-        status: "failed",
-      });
+    it.each(["failed", "in_review", "ready", "draft"])(
+      "refuses any status write (%s) and sends nothing to the server",
+      async (status) => {
+        const result = await handleCallTool(
+          makeRequest("vibemap_update_acceptance_criterion", { criterionId: "ac1", status })
+        );
+        expect(result.isError).toBe(true);
+        expect(stableMockClient.updateAcceptanceCriterion).not.toHaveBeenCalled();
+      }
+    );
 
-      const result = await handleCallTool(
+    it("never forwards a status field when updating content", async () => {
+      stableMockClient.updateAcceptanceCriterion.mockResolvedValue({ id: "ac1" });
+      await handleCallTool(
         makeRequest("vibemap_update_acceptance_criterion", {
           criterionId: "ac1",
-          status: "failed",
+          description: "clearer",
         })
       );
-
-      const data = JSON.parse(result.content[0].text);
-      expect(data.status).toBe("failed");
+      const sent = stableMockClient.updateAcceptanceCriterion.mock.calls[0][1];
+      expect(sent).not.toHaveProperty("status");
     });
 
     it("updates BDD fields", async () => {
@@ -1096,7 +1194,7 @@ describe("MCP Tools", () => {
 
     it("throws on missing criterionId", async () => {
       await expect(
-        handleCallTool(makeRequest("vibemap_update_acceptance_criterion", { status: "passed" }))
+        handleCallTool(makeRequest("vibemap_update_acceptance_criterion", { description: "x" }))
       ).rejects.toThrow(McpError);
     });
   });
@@ -1253,72 +1351,29 @@ describe("MCP Tools", () => {
       expect(result.content[0].text).toContain("Invalid transition");
     });
 
-    it("transitions a criterion from in_review to passed", async () => {
-      stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "in_review" });
-      stableMockClient.updateAcceptanceCriterion.mockResolvedValue({ id: "ac1", status: "passed" });
+    it.each([
+      ["in_review", "passed"],
+      ["in_review", "failed"],
+      ["failed", "ready"],
+      ["draft", "passed"],
+    ])(
+      "does not move a criterion (%s -> %s) and points at the transition tools",
+      async (from, to) => {
+        stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: from });
 
-      const result = await handleCallTool(
-        makeRequest("vibemap_update_kanban_status", {
-          entityType: "criterion",
-          entityId: "ac1",
-          newStatus: "passed",
-        })
-      );
+        const result = await handleCallTool(
+          makeRequest("vibemap_update_kanban_status", {
+            entityType: "criterion",
+            entityId: "ac1",
+            newStatus: to,
+          })
+        );
 
-      const data = JSON.parse(result.content[0].text);
-      expect(data.success).toBe(true);
-      expect(data.newStatus).toBe("passed");
-    });
-
-    it("transitions a criterion from in_review to failed", async () => {
-      stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "in_review" });
-      stableMockClient.updateAcceptanceCriterion.mockResolvedValue({ id: "ac1", status: "failed" });
-
-      const result = await handleCallTool(
-        makeRequest("vibemap_update_kanban_status", {
-          entityType: "criterion",
-          entityId: "ac1",
-          newStatus: "failed",
-        })
-      );
-
-      const data = JSON.parse(result.content[0].text);
-      expect(data.success).toBe(true);
-      expect(data.newStatus).toBe("failed");
-    });
-
-    it("transitions a criterion from failed back to ready (reopen)", async () => {
-      stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "failed" });
-      stableMockClient.updateAcceptanceCriterion.mockResolvedValue({
-        id: "ac1",
-        status: "ready",
-      });
-
-      const result = await handleCallTool(
-        makeRequest("vibemap_update_kanban_status", {
-          entityType: "criterion",
-          entityId: "ac1",
-          newStatus: "ready",
-        })
-      );
-
-      const data = JSON.parse(result.content[0].text);
-      expect(data.success).toBe(true);
-    });
-
-    it("returns error for invalid criterion transition (draft → passed)", async () => {
-      stableMockClient.getCriterion.mockResolvedValue({ id: "ac1", status: "draft" });
-
-      const result = await handleCallTool(
-        makeRequest("vibemap_update_kanban_status", {
-          entityType: "criterion",
-          entityId: "ac1",
-          newStatus: "passed",
-        })
-      );
-
-      expect(result.isError).toBe(true);
-    });
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain("vibemap_claim_criterion");
+        expect(stableMockClient.updateAcceptanceCriterion).not.toHaveBeenCalled();
+      }
+    );
   });
 
   // ── vibemap_get_kanban_board ─────────────────────────────────────────────────
