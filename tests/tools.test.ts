@@ -152,6 +152,17 @@ describe("MCP Tools", () => {
     "vibemap_get_code_map",
     "vibemap_sync_changes",
     "vibemap_get_generation_status",
+    "vibemap_claim_story",
+    "vibemap_get_criterion_context",
+    "vibemap_get_execution_plan",
+    "vibemap_rework_criterion",
+    "vibemap_get_criterion_evidence",
+    "vibemap_ask_user",
+    "vibemap_get_answers",
+    "vibemap_get_spec_delta",
+    "vibemap_get_release_work_list",
+    "vibemap_get_release_diff",
+    "vibemap_propose_spec_change",
   ];
 
   describe("handleListTools", () => {
@@ -215,6 +226,8 @@ describe("MCP Tools", () => {
       "code_map",
       "load_context",
       "kanban",
+      "build_sprint",
+      "release_next",
       ...EXPECTED_GEN_PROMPTS,
     ];
 
@@ -1494,20 +1507,24 @@ describe("MCP Tools", () => {
 
     it("accepts a well-formed diffUrl", async () => {
       stableMockClient.submitForReview.mockResolvedValue({ status: "in_review" });
+      const evidence = {
+        changedFiles: [{ path: "src/a.ts", status: "added" }],
+        tests: [{ file: "tests/a.test.ts", name: "[AC-001] works", acCodes: ["AC-001"] }],
+      };
       const result = await handleCallTool(
         makeRequest("vibemap_submit_for_review", {
           criterionId: "c1",
           gitSha: "abc1234",
           diffUrl: "https://github.com/org/repo/pull/1",
+          ...evidence,
         })
       );
       expect(result.content[0].text).toContain("in_review");
-      expect(stableMockClient.submitForReview).toHaveBeenCalledWith(
-        "c1",
-        "abc1234",
-        "https://github.com/org/repo/pull/1",
-        undefined
-      );
+      expect(stableMockClient.submitForReview).toHaveBeenCalledWith("c1", {
+        gitSha: "abc1234",
+        diffUrl: "https://github.com/org/repo/pull/1",
+        ...evidence,
+      });
     });
   });
 

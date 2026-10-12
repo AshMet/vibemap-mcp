@@ -61,7 +61,7 @@ export const TOOL_DEFINITIONS: Tool[] = [
   {
     name: "vibemap_get_atomic_blueprint",
     description:
-      "Retrieve a code-shaped atomic blueprint of a VibeMap project — relationships hydrated, Kanban metadata stripped, with synthesized interactions and entity state machines. Designed for LLM coders building the application end-to-end. Prefer this over vibemap_get_project_context when generating code; the blueprint omits PM narrative and process metadata to maximise signal-per-token.",
+      "Retrieve a code-shaped atomic blueprint of a VibeMap project — relationships hydrated, Kanban metadata stripped, with synthesized interactions and entity state machines. It covers the WHOLE project and can be very large on big projects (on the order of 150K tokens), so use it for one-off whole-project work such as an initial scaffold or an audit. While building a ticket, do not fetch it: call vibemap_get_criterion_context for the criterion you are working on instead, which returns only what that criterion needs, in a few thousand tokens. For general reading prefer vibemap_get_project_context.",
     annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: {
       type: "object",
@@ -116,6 +116,11 @@ export const TOOL_DEFINITIONS: Tool[] = [
         includeOps: {
           type: "boolean",
           description: "Inline each changeset's individual ops + diffs (default false)",
+        },
+        sinceSeq: {
+          type: "number",
+          description:
+            "Cursor: only changesets after this sequence number, oldest first. The response includes the next cursor to pass on the following call.",
         },
       },
       required: ["projectId"],
@@ -412,7 +417,8 @@ export const TOOL_DEFINITIONS: Tool[] = [
   },
   {
     name: "vibemap_update_feature",
-    description: "Update an existing feature's fields or status in VibeMap.",
+    description:
+      "Update an existing feature's fields or status in VibeMap. For spec authoring only: while building a ticket, use vibemap_propose_spec_change instead, so a person reviews the change.",
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
     inputSchema: {
       type: "object",
@@ -478,7 +484,8 @@ export const TOOL_DEFINITIONS: Tool[] = [
   },
   {
     name: "vibemap_update_user_story",
-    description: "Update an existing user story's fields or status in VibeMap.",
+    description:
+      "Update an existing user story's fields or status in VibeMap. For spec authoring only: while building a ticket, use vibemap_propose_spec_change instead, so a person reviews the change.",
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
     inputSchema: {
       type: "object",
@@ -550,7 +557,7 @@ export const TOOL_DEFINITIONS: Tool[] = [
   {
     name: "vibemap_update_acceptance_criterion",
     description:
-      "Update the content of an acceptance criterion (Given/When/Then, description, scenario category). This tool does not change status. To work on a criterion use vibemap_claim_criterion, then vibemap_report_progress, then vibemap_submit_for_review when your code satisfies it; CI or a human reviewer decides whether it passes.",
+      "Update the content of an acceptance criterion (Given/When/Then, description, scenario category). This tool does not change status. To work on a criterion use vibemap_claim_criterion (or vibemap_claim_story), then vibemap_report_progress, then vibemap_submit_for_review when your code satisfies it; CI or a human reviewer decides whether it passes. For spec authoring only: while building a ticket, use vibemap_propose_spec_change instead, so a person reviews the change.",
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
     inputSchema: {
       type: "object",
@@ -614,13 +621,17 @@ export const TOOL_DEFINITIONS: Tool[] = [
   {
     name: "vibemap_get_next_ready_criterion",
     description:
-      "Get the highest-priority acceptance criterion in `ready` status for the given project. Returns the criterion to work on next, or null if nothing is ready.",
+      "Get the next acceptance criterion to work on for the given project, plus the other ready criteria of the same story (`bundle`) so the whole story can be built together. When nothing can be claimed, `criterion` is null and `reason` says why (for example awaiting approval, awaiting review, failed and needing rework, blocked, or everything passed), with `blocking` listing the criteria behind it. `skipped_sprints` lists earlier sprints that still have leftovers waiting on a person or CI. Pass releaseId to scope the answer to one release.",
     annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: {
       type: "object",
       required: ["projectId"],
       properties: {
         projectId: { type: "string", description: "Project UUID" },
+        releaseId: {
+          type: "string",
+          description: "Optional release UUID; defaults to the project's active release",
+        },
       },
     },
   },
@@ -640,31 +651,103 @@ export const TOOL_DEFINITIONS: Tool[] = [
   {
     name: "vibemap_report_progress",
     description:
-      "Append a progress event to the criterion timeline without changing its status. Used to surface intermediate work for visibility.",
+      "Report what you are doing on a criterion you have claimed, without changing its status. This is the heartbeat the board shows live: call it at every phase change (planning, writing_test, implementing, running_tests, waiting_ci) and at least every 3 minutes while working. Optionally attach your step plan, the files you have touched and the latest test counts.",
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
     inputSchema: {
       type: "object",
-      required: ["criterionId", "summary"],
+      required: ["criterionId", "phase"],
       properties: {
         criterionId: { type: "string" },
+        phase: {
+          type: "string",
+          enum: ["planning", "writing_test", "implementing", "running_tests", "waiting_ci"],
+          description: "What you are doing right now",
+        },
         summary: { type: "string", description: "Short progress note (1-2000 chars)" },
+        plan: {
+          type: "array",
+          description: "Your step plan; resend it with done flags updated as you go (max 50)",
+          items: {
+            type: "object",
+            properties: {
+              step: { type: "string", description: "One step (1-500 chars)" },
+              done: { type: "boolean" },
+            },
+            required: ["step", "done"],
+          },
+        },
+        files: {
+          type: "array",
+          items: { type: "string" },
+          description: "Repo-relative paths you have changed so far (max 200)",
+        },
+        tests: {
+          type: "object",
+          description: "Latest local test counts",
+          properties: {
+            passed: { type: "number" },
+            failed: { type: "number" },
+            total: { type: "number" },
+          },
+          required: ["passed", "failed", "total"],
+        },
       },
     },
   },
   {
     name: "vibemap_submit_for_review",
     description:
-      "Submit completed work for review. Transitions in_progress → in_review. Requires a git SHA and a diff URL as evidence.",
+      "Submit completed work for review. Transitions in_progress -> in_review. Requires the commit SHA, the files you changed and the named tests that prove the criterion (each test name should start with the criterion's code, for example `[AC-042] rejects an empty title`). A passing local run does not finish the criterion: CI (or a person) decides, and only a passing CI run marks it verified.",
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
     inputSchema: {
       type: "object",
-      required: ["criterionId", "gitSha", "diffUrl"],
+      required: ["criterionId", "gitSha", "changedFiles", "tests"],
       properties: {
         criterionId: { type: "string" },
-        gitSha: { type: "string", description: "7+ char commit SHA" },
+        gitSha: { type: "string", description: "7+ char commit SHA of the work" },
+        baseSha: {
+          type: "string",
+          description: "Commit SHA the work was based on (7+ chars)",
+        },
+        specSeq: {
+          type: "number",
+          description:
+            "The spec sequence number from the context pack you built against, so a later spec change can be detected",
+        },
         diffUrl: {
           type: "string",
-          description: "URL to view the diff (PR link or compare URL)",
+          description: "Optional URL to view the diff (PR link or compare URL)",
+        },
+        changedFiles: {
+          type: "array",
+          description: "Every file the work changed (at least one)",
+          items: {
+            type: "object",
+            properties: {
+              path: { type: "string", description: "Repo-relative path" },
+              status: { type: "string", enum: ["added", "modified", "deleted", "renamed"] },
+              additions: { type: "number" },
+              deletions: { type: "number" },
+            },
+            required: ["path", "status"],
+          },
+        },
+        tests: {
+          type: "array",
+          description: "The named tests that prove the criterion (at least one)",
+          items: {
+            type: "object",
+            properties: {
+              file: { type: "string", description: "Repo-relative test file" },
+              name: { type: "string", description: "Full test name, tagged like `[AC-042] ...`" },
+              acCodes: {
+                type: "array",
+                items: { type: "string" },
+                description: "Criterion codes this test proves, like AC-042",
+              },
+            },
+            required: ["file", "name", "acCodes"],
+          },
         },
         notes: {
           type: "string",
@@ -692,7 +775,7 @@ export const TOOL_DEFINITIONS: Tool[] = [
   {
     name: "vibemap_block_criterion",
     description:
-      "Mark a criterion as blocked. Transitions any-active-status → blocked. Use this when external dependency, ambiguity, or environmental issue prevents progress.",
+      "Mark a criterion as blocked. Transitions any-active-status → blocked. Use this when external dependency or an environmental issue prevents progress. For an unclear spec, prefer vibemap_ask_user, which also files a question for a person to answer.",
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
     inputSchema: {
       type: "object",
@@ -748,6 +831,197 @@ export const TOOL_DEFINITIONS: Tool[] = [
       },
     },
   },
+  {
+    name: "vibemap_claim_story",
+    description:
+      "Claim every claimable acceptance criterion of one story in a single call, so the whole story is built together. The response lists what was claimed, what was skipped and why, and a context pack for each claimed criterion (the same pack vibemap_get_criterion_context returns). All or nothing: if another agent wins a race, nothing is left claimed by this call. Packs that do not fit are listed as omitted; fetch them one by one.",
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+    inputSchema: {
+      type: "object",
+      required: ["storyId"],
+      properties: {
+        storyId: { type: "string", description: "User story UUID" },
+        includeSource: {
+          type: "boolean",
+          description: "Include the source of related code in each pack (default false)",
+        },
+      },
+    },
+  },
+  {
+    name: "vibemap_get_criterion_context",
+    description:
+      "Get everything needed to build one acceptance criterion, in a few thousand tokens: the criterion, its story and feature, the pages and interactions it touches, the data entities, access rules, related code and conventions. Use this during a build instead of the whole-project blueprint. The pack carries a `spec_seq` (pass it to vibemap_submit_for_review) and an etag, so re-checking mid-build is cheap.",
+    annotations: { readOnlyHint: true, destructiveHint: false },
+    inputSchema: {
+      type: "object",
+      required: ["criterionId"],
+      properties: {
+        criterionId: { type: "string", description: "Acceptance criterion UUID" },
+        includeSource: {
+          type: "boolean",
+          description: "Include the source of related code (default false)",
+        },
+      },
+    },
+  },
+  {
+    name: "vibemap_get_execution_plan",
+    description:
+      "Get the build order for a project: acceptance criteria grouped by sprint in dependency order, each with its state (ready, blocked, passed, and so on). Use it once at the start of a build session to see the whole route. Pass releaseId to plan only one release's new and modified work.",
+    annotations: { readOnlyHint: true, destructiveHint: false },
+    inputSchema: {
+      type: "object",
+      required: ["projectId"],
+      properties: {
+        projectId: { type: "string", description: "Project UUID" },
+        releaseId: {
+          type: "string",
+          description: "Optional release UUID; defaults to the project's active release",
+        },
+      },
+    },
+  },
+  {
+    name: "vibemap_rework_criterion",
+    description:
+      "Send a criterion that failed review back to ready so you can build it again. Only the agent that built it can do this. The failing review's feedback (the failed test names and notes) is attached to the event and is also in the evidence history, so read it before you start. Then claim the criterion again.",
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+    inputSchema: {
+      type: "object",
+      required: ["criterionId"],
+      properties: {
+        criterionId: { type: "string" },
+        plan: {
+          type: "string",
+          description: "Optional short note on how you will fix it (max 2000 chars)",
+        },
+      },
+    },
+  },
+  {
+    name: "vibemap_get_criterion_evidence",
+    description:
+      "Get the submission history of a criterion: every attempt with the files changed, the named tests and the verdict, newest first. Use it after a failure to see which tests failed.",
+    annotations: { readOnlyHint: true, destructiveHint: false },
+    inputSchema: {
+      type: "object",
+      required: ["criterionId"],
+      properties: {
+        criterionId: { type: "string" },
+        limit: { type: "number", description: "Max attempts to return (1-50, default 20)" },
+      },
+    },
+  },
+  {
+    name: "vibemap_ask_user",
+    description:
+      "Ask the project's owner a question when the spec is unclear. This blocks the criterion (category spec_unclear) and shows the question on the board, with your suggested options if you give any. Keep working on other ready criteria while you wait, then call vibemap_get_answers to collect the reply; once a person answers, the criterion is unblocked automatically.",
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+    inputSchema: {
+      type: "object",
+      required: ["criterionId", "question"],
+      properties: {
+        criterionId: { type: "string" },
+        question: { type: "string", description: "The question (1-2000 chars)" },
+        options: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional suggested answers the person can pick from (1-10)",
+        },
+        reason: {
+          type: "string",
+          description: "Optional context for the block; defaults to the question",
+        },
+      },
+    },
+  },
+  {
+    name: "vibemap_get_answers",
+    description:
+      "Collect the answers to questions you asked with vibemap_ask_user. Returns each answer for the criterion, and `waiting: true` while a question is still open. Pass `since` (ISO timestamp, for example the time you asked) to return only answers given after it.",
+    annotations: { readOnlyHint: true, destructiveHint: false },
+    inputSchema: {
+      type: "object",
+      required: ["criterionId"],
+      properties: {
+        criterionId: { type: "string" },
+        since: {
+          type: "string",
+          description: "ISO timestamp; only answers given after this are returned",
+        },
+      },
+    },
+  },
+  {
+    name: "vibemap_get_spec_delta",
+    description:
+      "See what changed in the spec since a sequence number (the `spec_seq` in your context pack), and which criteria that affects. `requires_rebuild` lists affected criteria that are already in progress, in review or passed. If `has_more` is true, call again with sinceSeq set to the returned `to_seq`.",
+    annotations: { readOnlyHint: true, destructiveHint: false },
+    inputSchema: {
+      type: "object",
+      required: ["projectId", "sinceSeq"],
+      properties: {
+        projectId: { type: "string" },
+        sinceSeq: { type: "number", description: "Sequence number to compare against" },
+        limit: { type: "number", description: "Max changesets to cover (1-200, default 50)" },
+      },
+    },
+  },
+  {
+    name: "vibemap_get_release_work_list",
+    description:
+      "Get a release's work list grouped as `new`, `modified` and `removed`. Each item has its material field changes, the commit it was last built at and its code paths. For removed items the code paths are the files to delete. Needs a plan with release management.",
+    annotations: { readOnlyHint: true, destructiveHint: false },
+    inputSchema: {
+      type: "object",
+      required: ["releaseId"],
+      properties: { releaseId: { type: "string", description: "Release UUID" } },
+    },
+  },
+  {
+    name: "vibemap_get_release_diff",
+    description:
+      "Get the raw diff of a release against its baseline: every listed item with its baseline row and the material field changes. Use vibemap_get_release_work_list for the actionable version. Needs a plan with release management.",
+    annotations: { readOnlyHint: true, destructiveHint: false },
+    inputSchema: {
+      type: "object",
+      required: ["releaseId"],
+      properties: { releaseId: { type: "string", description: "Release UUID" } },
+    },
+  },
+  {
+    name: "vibemap_propose_spec_change",
+    description:
+      "Propose a change to the spec when the code has to differ from it (for example a field the spec missed). This stages the proposal; it does NOT edit the spec. The review screen for staged proposals is coming, so until it ships the owner will not see it in the app: also list it in your final summary. While building, always use this instead of the update_* tools. Give the entity, the content fields you want changed with their new values (only that entity's content fields are accepted: not status, ids, codes, assignment or sprint) and a short rationale; add evidence (a file path, test name or error) if you have it. An identical pending proposal is returned instead of duplicated; at most 10 per minute and 50 pending per project.",
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
+    inputSchema: {
+      type: "object",
+      required: ["projectId", "entity", "entityId", "fields", "rationale"],
+      properties: {
+        projectId: { type: "string" },
+        entity: {
+          type: "string",
+          enum: ["feature", "user_story", "acceptance_criterion", "page", "persona"],
+        },
+        entityId: { type: "string", description: "UUID of the entity to change" },
+        fields: {
+          type: "object",
+          description:
+            "Content field names mapped to the new values you propose (max 20). Allowed by entity: feature (name, description, priority, category, complexity, effort, business_value); user_story (title, description, i_want_to, so_that, user_role, priority, estimated_effort); acceptance_criterion (title, description, given_condition, when_action, then_outcome, scenario_category); page (name, description, path, page_type, layout_intent, api_endpoints, ui_states, state_requirements, priority); persona (name, tagline, user_role, narrative, avatar_description, demographics, psychographics, goals_and_needs, pain_points, product_specific, behavioral_patterns, communication_preferences, user_journey).",
+        },
+        rationale: { type: "string", description: "Why the spec should change (1-2000 chars)" },
+        evidence: {
+          type: "string",
+          description: "Optional supporting detail: file path, test name, error text (max 2000 chars)",
+        },
+        criterionId: {
+          type: "string",
+          description: "Optional criterion you were building when you found this",
+        },
+      },
+    },
+  },
 
   // ── Group 6: Codebase Analysis ─────────────────────────────────────────
   {
@@ -793,7 +1067,7 @@ export const TOOL_DEFINITIONS: Tool[] = [
   {
     name: "vibemap_submit_code_map",
     description:
-      "Submit a structural code map of the user's codebase to VibeMap (rendered on the project's Codebase tab). Build it yourself from your codebase access: one node per meaningful unit (page/route, API endpoint, data model, service, module, config), edges for imports/routes/reads/writes. Node kinds: page|api|model|service|module|config. Layers: ui|api|data|services|shared. Edge kinds: imports|routes|reads|writes. Use repo-relative paths as node ids. Max 500 nodes — aggregate small files into their module. Re-submitting replaces the project's map and resets it to draft for the user to re-confirm.",
+      "Submit a structural code map of the user's codebase to VibeMap (rendered on the project's Codebase tab). Build it yourself from your codebase access: one node per meaningful unit (page/route, API endpoint, data model, service, module, config), edges for imports/routes/reads/writes. Node kinds: page|api|model|service|module|config. Layers: ui|api|data|services|shared. Edge kinds: imports|routes|reads|writes. Use repo-relative paths as node ids. Max 500 nodes — aggregate small files into their module. Re-submitting replaces the project's map and resets it to draft for the user to re-confirm; any existing drift report is kept.",
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     inputSchema: {
       type: "object",
@@ -833,7 +1107,7 @@ export const TOOL_DEFINITIONS: Tool[] = [
   {
     name: "vibemap_sync_changes",
     description:
-      "Report codebase changes since the last sync so VibeMap can flag spec drift. Workflow: 1) call vibemap_get_code_map and read anchor.commitSha; 2) run `git diff --name-only <commitSha>..HEAD` (plus untracked files from `git status --porcelain`); 3) call this tool with the changed paths and your current HEAD sha. The response lists affected map units and features — update the stale specs with vibemap_update_feature / vibemap_update_user_story / vibemap_update_acceptance_criterion (all changeset-audited), then re-submit the code map with vibemap_submit_code_map to clear the drift.",
+      "Report codebase changes since the last sync so VibeMap can flag spec drift. Workflow: 1) call vibemap_get_code_map and read anchor.commitSha; 2) run `git diff --name-only <commitSha>..HEAD` (plus untracked files from `git status --porcelain`); 3) call this tool with the changed paths and your current HEAD sha. The response lists affected map units and features — update the stale specs with vibemap_update_feature / vibemap_update_user_story / vibemap_update_acceptance_criterion (all changeset-audited). The drift report stays on the project until the flagged items are resolved or dismissed in VibeMap; re-submitting the code map does not clear it. While you are building a ticket, send spec changes through vibemap_propose_spec_change rather than editing the spec.",
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     inputSchema: {
       type: "object",

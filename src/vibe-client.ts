@@ -262,6 +262,64 @@ export interface AgentResult {
   [key: string]: unknown;
 }
 
+
+// ── Build loop payloads ──────────────────────────────────────────────────────
+
+export type ProgressPhase =
+  | "planning"
+  | "writing_test"
+  | "implementing"
+  | "running_tests"
+  | "waiting_ci";
+
+export interface ReportProgressData {
+  phase: ProgressPhase;
+  summary?: string;
+  plan?: Array<{ step: string; done: boolean }>;
+  files?: string[];
+  tests?: { passed: number; failed: number; total: number };
+}
+
+export interface SubmittedChangedFile {
+  path: string;
+  status: "added" | "modified" | "deleted" | "renamed";
+  additions?: number;
+  deletions?: number;
+}
+
+export interface SubmittedTest {
+  file: string;
+  name: string;
+  acCodes: string[];
+}
+
+export interface SubmitForReviewData {
+  gitSha: string;
+  diffUrl?: string;
+  baseSha?: string;
+  specSeq?: number;
+  changedFiles: SubmittedChangedFile[];
+  tests: SubmittedTest[];
+  notes?: string;
+}
+
+export type ProposalEntity =
+  | "feature"
+  | "user_story"
+  | "acceptance_criterion"
+  | "page"
+  | "persona";
+
+export interface ProposeSpecChangeData {
+  projectId: string;
+  entity: ProposalEntity;
+  entityId: string;
+  fields: Record<string, unknown>;
+  rationale: string;
+  evidence?: string;
+  criterionId?: string;
+}
+
 // ─── Client ──────────────────────────────────────────────────────────────────
 
 export class VibeMapClient {
@@ -391,13 +449,14 @@ export class VibeMapClient {
 
   async listChangesets(
     projectId: string,
-    opts: { limit?: number; includeOps?: boolean } = {}
+    opts: { limit?: number; includeOps?: boolean; sinceSeq?: number } = {}
   ): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>(
       `/api/mcp/changesets${this.buildQuery({
         projectId,
         limit: opts.limit,
         includeOps: opts.includeOps,
+        since_seq: opts.sinceSeq,
       })}`
     );
   }
@@ -612,9 +671,12 @@ export class VibeMapClient {
 
   // ── Kanban Tracker (typed transitions) ────────────────────────────────────
 
-  async getNextReadyCriterion(projectId: string): Promise<Record<string, unknown>> {
+  async getNextReadyCriterion(
+    projectId: string,
+    releaseId?: string
+  ): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>(
-      `/api/mcp/kanban/projects/${projectId}/next-ready`
+      `/api/mcp/kanban/projects/${projectId}/next-ready${this.buildQuery({ release_id: releaseId })}`
     );
   }
 
@@ -625,22 +687,45 @@ export class VibeMapClient {
     });
   }
 
-  async reportProgress(criterionId: string, summary: string): Promise<Record<string, unknown>> {
+  async reportProgress(criterionId: string, data: ReportProgressData): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>(
       `/api/mcp/kanban/criterion/${criterionId}/progress`,
-      { method: "POST", body: JSON.stringify({ summary }) }
+      {
+        method: "POST",
+        body: JSON.stringify({
+          phase: data.phase,
+          summary: data.summary,
+          plan: data.plan,
+          files: data.files,
+          tests: data.tests,
+        }),
+      }
     );
   }
 
   async submitForReview(
     criterionId: string,
-    gitSha: string,
-    diffUrl: string,
-    notes?: string
+    data: SubmitForReviewData
   ): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>(
       `/api/mcp/kanban/criterion/${criterionId}/submit-for-review`,
-      { method: "POST", body: JSON.stringify({ git_sha: gitSha, diff_url: diffUrl, notes }) }
+      {
+        method: "POST",
+        body: JSON.stringify({
+          git_sha: data.gitSha,
+          diff_url: data.diffUrl,
+          base_sha: data.baseSha,
+          spec_seq: data.specSeq,
+          changed_files: data.changedFiles.map((f) => ({
+            path: f.path,
+            status: f.status,
+            additions: f.additions,
+            deletions: f.deletions,
+          })),
+          tests: data.tests.map((t) => ({ file: t.file, name: t.name, ac_codes: t.acCodes })),
+          notes: data.notes,
+        }),
+      }
     );
   }
 
@@ -659,11 +744,16 @@ export class VibeMapClient {
   async blockCriterion(
     criterionId: string,
     category: "spec_unclear" | "missing_dep" | "external_blocker" | "other",
-    reason: string
+    reason: string,
+    question?: { question: string; options?: string[] }
   ): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>(`/api/mcp/kanban/criterion/${criterionId}/block`, {
       method: "POST",
-      body: JSON.stringify({ category, reason }),
+      body: JSON.stringify({
+        category,
+        reason,
+        ...(question ? { question: question.question, options: question.options } : {}),
+      }),
     });
   }
 
@@ -688,5 +778,114 @@ export class VibeMapClient {
     return this.request<Record<string, unknown>>(
       `/api/mcp/kanban/projects/${projectId}/events?${qp.toString()}`
     );
+  }
+
+  // ── Build loop: context, story claim, plan, rework, questions ─────────────
+
+  /** The per-criterion context pack (small, ticket-scoped). */
+  async getCriterionContext(
+    criterionId: string,
+    includeSource = false
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      `/api/mcp/kanban/criterion/${criterionId}/context${this.buildQuery({
+        include: includeSource ? "source" : undefined,
+      })}`
+    );
+  }
+
+  /** Claim every claimable criterion of a story; the response embeds a context pack for each. */
+  async claimStory(storyId: string, includeSource = false): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      `/api/mcp/kanban/story/${storyId}/claim${this.buildQuery({
+        include: includeSource ? "source" : undefined,
+      })}`,
+      { method: "POST", body: JSON.stringify({}) }
+    );
+  }
+
+  async getExecutionPlan(projectId: string, releaseId?: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      `/api/mcp/kanban/projects/${projectId}/execution-plan${this.buildQuery({
+        release_id: releaseId,
+      })}`
+    );
+  }
+
+  /** Move a rejected criterion back to ready so it can be reclaimed. */
+  async reworkCriterion(criterionId: string, plan?: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/api/mcp/kanban/criterion/${criterionId}/rework`, {
+      method: "POST",
+      body: JSON.stringify(plan === undefined ? {} : { plan }),
+    });
+  }
+
+  /** Every submission attempt for a criterion: files, tests and verdict, newest first. */
+  async getCriterionEvidence(criterionId: string, limit?: number): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      `/api/mcp/kanban/criterion/${criterionId}/evidence${this.buildQuery({ limit })}`
+    );
+  }
+
+  /**
+   * The questions asked about a criterion and the answers a person gave, read
+   * from the criterion's own questions (newest 50). `since` keeps only answers
+   * given after that timestamp. `waiting` is true while a question is open.
+   */
+  async getAnswers(
+    criterionId: string,
+    since?: string
+  ): Promise<{ answers: Array<Record<string, unknown>>; waiting: boolean }> {
+    const res = await this.request<{
+      waiting?: boolean;
+      questions?: Array<Record<string, unknown>>;
+    }>(`/api/mcp/kanban/criterion/${criterionId}/questions${this.buildQuery({ limit: 50 })}`);
+    const sinceMs = since ? Date.parse(since) : Number.NaN;
+    const answers = (res.questions ?? [])
+      .filter((q) => q.status === "answered" && typeof q.answer === "string")
+      .filter((q) => Number.isNaN(sinceMs) || Date.parse(String(q.answered_at)) > sinceMs)
+      .map((q) => ({
+        question_id: q.id,
+        question: q.question,
+        answer: q.answer,
+        decision_id: q.decision_id,
+        answered_at: q.answered_at,
+      }));
+    return { answers, waiting: res.waiting === true };
+  }
+
+  /** What changed in the spec after a given sequence number, and which criteria that touches. */
+  async getSpecDelta(
+    projectId: string,
+    sinceSeq: number,
+    limit?: number
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      `/api/mcp/spec-delta${this.buildQuery({ projectId, since_seq: sinceSeq, limit })}`
+    );
+  }
+
+  async getReleaseWorkList(releaseId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/api/mcp/releases/${releaseId}/work-list`);
+  }
+
+  async getReleaseDiff(releaseId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(`/api/mcp/releases/${releaseId}/diff`);
+  }
+
+  /** Stage a proposed spec change for a person to review. Never edits the spec. */
+  async proposeSpecChange(data: ProposeSpecChangeData): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>("/api/mcp/spec-proposals", {
+      method: "POST",
+      body: JSON.stringify({
+        projectId: data.projectId,
+        entity: data.entity,
+        entityId: data.entityId,
+        fields: data.fields,
+        rationale: data.rationale,
+        evidence: data.evidence,
+        criterionId: data.criterionId,
+      }),
+    });
   }
 }
