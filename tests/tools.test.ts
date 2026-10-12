@@ -152,6 +152,17 @@ describe("MCP Tools", () => {
     "vibemap_get_code_map",
     "vibemap_sync_changes",
     "vibemap_get_generation_status",
+    "vibemap_claim_story",
+    "vibemap_get_criterion_context",
+    "vibemap_get_execution_plan",
+    "vibemap_rework_criterion",
+    "vibemap_get_criterion_evidence",
+    "vibemap_ask_user",
+    "vibemap_get_answers",
+    "vibemap_get_spec_delta",
+    "vibemap_get_release_work_list",
+    "vibemap_get_release_diff",
+    "vibemap_propose_spec_change",
   ];
 
   describe("handleListTools", () => {
@@ -215,6 +226,8 @@ describe("MCP Tools", () => {
       "code_map",
       "load_context",
       "kanban",
+      "build_sprint",
+      "release_next",
       ...EXPECTED_GEN_PROMPTS,
     ];
 

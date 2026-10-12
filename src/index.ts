@@ -365,6 +365,7 @@ const GetReviewPlanSchema = ProjectIdSchema;
 const ListChangesetsSchema = ProjectIdSchema.extend({
   limit: z.number().int().min(1).max(200).optional(),
   includeOps: z.boolean().optional(),
+  sinceSeq: z.number().int().min(0).optional(),
 });
 
 const GetPageSourceSchema = ProjectIdSchema.extend({
@@ -427,22 +428,130 @@ const SyncChangesSchema = z.object({
 
 // ── Kanban Tracker (typed transitions) schemas ──────────────────────────────
 
-const GetNextReadyCriterionSchema = ProjectIdSchema;
+const GetNextReadyCriterionSchema = ProjectIdSchema.extend({
+  releaseId: z.string().min(1).optional(),
+});
 
 const ClaimCriterionSchema = z.object({
   criterionId: z.string().min(1, "criterionId is required"),
 });
 
+const ProgressPhaseEnum = z.enum([
+  "planning",
+  "writing_test",
+  "implementing",
+  "running_tests",
+  "waiting_ci",
+]);
+
 const ReportProgressSchema = z.object({
   criterionId: z.string().min(1, "criterionId is required"),
-  summary: z.string().min(1).max(2000, "summary must be 1-2000 chars"),
+  phase: ProgressPhaseEnum,
+  summary: z.string().min(1).max(2000, "summary must be 1-2000 chars").optional(),
+  plan: z
+    .array(z.object({ step: z.string().min(1).max(500), done: z.boolean() }))
+    .max(50)
+    .optional(),
+  files: z.array(z.string().min(1).max(500)).max(200).optional(),
+  tests: z
+    .object({
+      passed: z.number().int().min(0),
+      failed: z.number().int().min(0),
+      total: z.number().int().min(0),
+    })
+    .refine((t) => t.passed + t.failed <= t.total, {
+      message: "passed + failed cannot exceed total",
+    })
+    .optional(),
 });
+
+const AcCodeSchema = z.string().regex(/^AC-[0-9]{3,}$/, "expected a criterion code like AC-042");
 
 const SubmitForReviewSchema = z.object({
   criterionId: z.string().min(1, "criterionId is required"),
   gitSha: z.string().min(7, "gitSha must be at least 7 chars"),
-  diffUrl: z.string().min(1, "diffUrl is required").url("diffUrl must be a valid URL"),
+  baseSha: z.string().min(7, "baseSha must be at least 7 chars").optional(),
+  specSeq: z.number().int().min(0).optional(),
+  diffUrl: z.string().url("diffUrl must be a valid URL").optional(),
+  changedFiles: z
+    .array(
+      z.object({
+        path: z.string().min(1).max(500),
+        status: z.enum(["added", "modified", "deleted", "renamed"]),
+        additions: z.number().int().min(0).optional(),
+        deletions: z.number().int().min(0).optional(),
+      })
+    )
+    .min(1, "changedFiles needs at least one file")
+    .max(1000),
+  tests: z
+    .array(
+      z.object({
+        file: z.string().min(1).max(500),
+        name: z.string().min(1).max(500),
+        acCodes: z.array(AcCodeSchema).min(1).max(50),
+      })
+    )
+    .min(1, "tests needs at least one named test")
+    .max(200),
   notes: z.string().max(2000).optional(),
+});
+
+const ClaimStorySchema = z.object({
+  storyId: z.string().min(1, "storyId is required"),
+  includeSource: z.boolean().optional(),
+});
+
+const GetCriterionContextSchema = z.object({
+  criterionId: z.string().min(1, "criterionId is required"),
+  includeSource: z.boolean().optional(),
+});
+
+const GetExecutionPlanSchema = ProjectIdSchema.extend({
+  releaseId: z.string().min(1).optional(),
+});
+
+const ReworkCriterionSchema = z.object({
+  criterionId: z.string().min(1, "criterionId is required"),
+  plan: z.string().max(2000).optional(),
+});
+
+const GetCriterionEvidenceSchema = z.object({
+  criterionId: z.string().min(1, "criterionId is required"),
+  limit: z.number().int().min(1).max(50).optional(),
+});
+
+const AskUserSchema = z.object({
+  criterionId: z.string().min(1, "criterionId is required"),
+  question: z.string().trim().min(1).max(2000, "question must be 1-2000 chars"),
+  options: z.array(z.string().trim().min(1).max(500)).min(1).max(10).optional(),
+  reason: z.string().min(1).max(2000).optional(),
+});
+
+const GetAnswersSchema = ProjectIdSchema.extend({
+  criterionId: z.string().min(1, "criterionId is required"),
+  since: z.string().optional(),
+});
+
+const GetSpecDeltaSchema = ProjectIdSchema.extend({
+  sinceSeq: z.number().int().min(0),
+  limit: z.number().int().min(1).max(200).optional(),
+});
+
+const ReleaseIdSchema = z.object({
+  releaseId: z.string().min(1, "releaseId is required"),
+});
+
+const ProposeSpecChangeSchema = ProjectIdSchema.extend({
+  entity: z.enum(["feature", "user_story", "acceptance_criterion", "page", "persona"]),
+  entityId: z.string().min(1, "entityId is required"),
+  fields: z
+    .record(z.string(), z.unknown())
+    .refine((f) => Object.keys(f).length > 0, { message: "fields cannot be empty" })
+    .refine((f) => Object.keys(f).length <= 20, { message: "at most 20 fields" }),
+  rationale: z.string().trim().min(1).max(2000, "rationale must be 1-2000 chars"),
+  evidence: z.string().max(2000).optional(),
+  criterionId: z.string().min(1).optional(),
 });
 
 const ResolveReviewSchema = z.object({
@@ -952,6 +1061,7 @@ export async function handleCallTool(request: CallToolRequest) {
         const changesets = await client.listChangesets(parsed.projectId, {
           limit: parsed.limit,
           includeOps: parsed.includeOps,
+          sinceSeq: parsed.sinceSeq,
         });
         return { content: [{ type: "text", text: JSON.stringify(changesets, null, 2) }] };
       }
@@ -1307,7 +1417,7 @@ export async function handleCallTool(request: CallToolRequest) {
       case "vibemap_get_next_ready_criterion": {
         const parsed = GetNextReadyCriterionSchema.parse(args);
         const client = getVibeClient();
-        const result = await client.getNextReadyCriterion(parsed.projectId);
+        const result = await client.getNextReadyCriterion(parsed.projectId, parsed.releaseId);
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
 
@@ -1323,7 +1433,8 @@ export async function handleCallTool(request: CallToolRequest) {
       case "vibemap_report_progress": {
         const parsed = ReportProgressSchema.parse(args);
         const client = getVibeClient();
-        const result = await client.reportProgress(parsed.criterionId, parsed.summary);
+        const { criterionId, ...progress } = parsed;
+        const result = await client.reportProgress(criterionId, progress);
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
 
@@ -1331,12 +1442,99 @@ export async function handleCallTool(request: CallToolRequest) {
       case "vibemap_submit_for_review": {
         const parsed = SubmitForReviewSchema.parse(args);
         const client = getVibeClient();
-        const result = await client.submitForReview(
+        const { criterionId, ...submission } = parsed;
+        const result = await client.submitForReview(criterionId, submission);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      // ── vibemap_claim_story ────────────────────────────────────────────────
+      case "vibemap_claim_story": {
+        const parsed = ClaimStorySchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.claimStory(parsed.storyId, parsed.includeSource);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      // ── vibemap_get_criterion_context ──────────────────────────────────────
+      case "vibemap_get_criterion_context": {
+        const parsed = GetCriterionContextSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.getCriterionContext(parsed.criterionId, parsed.includeSource);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      // ── vibemap_get_execution_plan ─────────────────────────────────────────
+      case "vibemap_get_execution_plan": {
+        const parsed = GetExecutionPlanSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.getExecutionPlan(parsed.projectId, parsed.releaseId);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      // ── vibemap_rework_criterion ───────────────────────────────────────────
+      case "vibemap_rework_criterion": {
+        const parsed = ReworkCriterionSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.reworkCriterion(parsed.criterionId, parsed.plan);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      // ── vibemap_get_criterion_evidence ─────────────────────────────────────
+      case "vibemap_get_criterion_evidence": {
+        const parsed = GetCriterionEvidenceSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.getCriterionEvidence(parsed.criterionId, parsed.limit);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      // ── vibemap_ask_user ───────────────────────────────────────────────────
+      case "vibemap_ask_user": {
+        const parsed = AskUserSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.blockCriterion(
           parsed.criterionId,
-          parsed.gitSha,
-          parsed.diffUrl,
-          parsed.notes
+          "spec_unclear",
+          parsed.reason ?? parsed.question,
+          { question: parsed.question, options: parsed.options }
         );
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      // ── vibemap_get_answers ────────────────────────────────────────────────
+      case "vibemap_get_answers": {
+        const parsed = GetAnswersSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.getAnswers(parsed.projectId, parsed.criterionId, parsed.since);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      // ── vibemap_get_spec_delta ─────────────────────────────────────────────
+      case "vibemap_get_spec_delta": {
+        const parsed = GetSpecDeltaSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.getSpecDelta(parsed.projectId, parsed.sinceSeq, parsed.limit);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      // ── vibemap_get_release_work_list / vibemap_get_release_diff ───────────
+      case "vibemap_get_release_work_list": {
+        const parsed = ReleaseIdSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.getReleaseWorkList(parsed.releaseId);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+      case "vibemap_get_release_diff": {
+        const parsed = ReleaseIdSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.getReleaseDiff(parsed.releaseId);
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      }
+
+      // ── vibemap_propose_spec_change ────────────────────────────────────────
+      case "vibemap_propose_spec_change": {
+        const parsed = ProposeSpecChangeSchema.parse(args);
+        const client = getVibeClient();
+        const result = await client.proposeSpecChange(parsed);
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
 

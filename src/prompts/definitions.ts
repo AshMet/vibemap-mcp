@@ -115,6 +115,18 @@ export const PROMPT_DEFINITIONS: Prompt[] = [
       "Show the VibeMap kanban board for a project so your agent knows what to work on next.",
     arguments: [PROJECT_ARG],
   },
+  {
+    name: "build_sprint",
+    description:
+      "Build the project's ready work in the repo you have open, one story at a time and test first, while the VibeMap board follows live. Plans from the execution plan, claims a story, writes a tagged test before the code, reports progress, commits with a criterion trailer, submits the changed files and named tests, then waits for CI to verify. Asks a question when the spec is unclear and proposes a spec change (never edits the spec) when the code must differ. Runs on your own model.",
+    arguments: [PROJECT_ARG],
+  },
+  {
+    name: "release_next",
+    description:
+      "Build the project's next release in the repo you have open: gets the release work list, builds the new and modified items with the same test-first loop as build_sprint, and deletes the code and tests of removed items. Runs on your own model.",
+    arguments: [PROJECT_ARG],
+  },
 
   // ── gen_* — VibeMap's own generation commands (ENGINE B, metered) ───────────
   //
