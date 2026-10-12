@@ -594,7 +594,16 @@ function criterionStatusRefusal() {
   };
 }
 
-const GLOBAL_STRIP = ["slug", "embedding", "created_at", "updated_at", "original_prompt"];
+// `app_architecture` is the full architecture config; it can run past 100k
+// characters and no tool contract reads it.
+const GLOBAL_STRIP = [
+  "slug",
+  "embedding",
+  "created_at",
+  "updated_at",
+  "original_prompt",
+  "app_architecture",
+];
 
 // Entity-specific strip lists for read/context surfaces. These drop planning
 // metadata (priority, status, effort, etc.) that bloats the context window but

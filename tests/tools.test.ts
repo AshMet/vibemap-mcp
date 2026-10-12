@@ -312,6 +312,39 @@ describe("MCP Tools", () => {
   });
 
   // ── vibemap_list_projects ────────────────────────────────────────────────────
+  // ── app_architecture never leaves the server through a project tool ─────────
+  describe("project tools omit app_architecture (can exceed 100k characters)", () => {
+    const big = { version: 2, blob: "x".repeat(150_000) };
+
+    it("vibemap_list_projects", async () => {
+      stableMockClient.listProjects.mockResolvedValue([
+        { id: "p1", name: "One", app_architecture: big },
+        { id: "p2", name: "Two", app_architecture: big },
+      ]);
+      const result = await handleCallTool(makeRequest("vibemap_list_projects", {}));
+      const data = JSON.parse(result.content[0].text);
+      expect(data).toHaveLength(2);
+      for (const p of data) expect(p).not.toHaveProperty("app_architecture");
+      expect(result.content[0].text.length).toBeLessThan(5_000);
+    });
+
+    it("vibemap_create_project", async () => {
+      stableMockClient.createProject.mockResolvedValue({
+        id: "p1",
+        name: "One",
+        app_architecture: big,
+      });
+      const result = await handleCallTool(
+        makeRequest("vibemap_create_project", {
+          name: "One project",
+          description: "A project description that is comfortably longer than fifty characters.",
+        })
+      );
+      expect(JSON.parse(result.content[0].text)).not.toHaveProperty("app_architecture");
+      expect(result.content[0].text.length).toBeLessThan(5_000);
+    });
+  });
+
   describe("vibemap_list_projects", () => {
     it("returns project list", async () => {
       const mockProjects = [{ id: "1", name: "Project A" }];
