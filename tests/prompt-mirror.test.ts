@@ -11,7 +11,7 @@
  */
 import { describe, expect, it } from "vitest";
 // @ts-expect-error — dependency-free .mjs guard, deliberately not part of tsconfig's src build
-import { checkPromptMirror, EXPECTED_GEN_NAMES } from "../scripts/check-prompt-mirror.mjs";
+import { checkPromptMirror, EXPECTED_BUILD_NAMES, EXPECTED_GEN_NAMES } from "../scripts/check-prompt-mirror.mjs";
 import { PROMPT_DEFINITIONS } from "../src/prompts/definitions";
 
 const PROJECT_ARG = { name: "projectId", description: "x", required: true };
@@ -28,6 +28,24 @@ describe("checkPromptMirror", () => {
     const { failures, genNames } = checkPromptMirror(PROMPT_DEFINITIONS);
     expect(failures).toEqual([]);
     expect(genNames.sort()).toEqual([...EXPECTED_GEN_NAMES].sort());
+  });
+
+  // ── MUTATION: the build-loop prompts ─────────────────────────────────────
+
+  it("FAILS when a build-loop prompt is missing", () => {
+    for (const name of EXPECTED_BUILD_NAMES) {
+      const defs = PROMPT_DEFINITIONS.filter((d) => d.name !== name);
+      const { failures } = checkPromptMirror(defs);
+      expect(failures.join("\n")).toContain(`"${name}" is missing`);
+    }
+  });
+
+  it("FAILS when a build-loop prompt gains or loses an argument", () => {
+    const defs = PROMPT_DEFINITIONS.map((d) =>
+      d.name === "build_sprint" ? { ...d, arguments: [] } : d
+    );
+    const { failures } = checkPromptMirror(defs);
+    expect(failures.join("\n")).toContain('"build_sprint"');
   });
 
   // ── MUTATION: duplicate names ────────────────────────────────────────────

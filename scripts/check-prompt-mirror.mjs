@@ -60,6 +60,12 @@ export const EXPECTED_GEN_NAMES = [
   "gen_sync_criteria_from_pages",
 ];
 
+// The build-loop prompts. Like the gen_* names, the app serves their bodies, so a
+// name listed here that the app does not build is a prompt the IDE offers and
+// the server answers with a 404. Update this list in the SAME PR that adds,
+// renames or removes one of them.
+export const EXPECTED_BUILD_NAMES = ["build_sprint", "release_next"];
+
 const GEN_NAME_RE = /^gen_[a-z0-9]+(?:_[a-z0-9]+)*$/;
 
 /**
@@ -131,6 +137,27 @@ export function checkPromptMirror(definitions) {
     if (!projectArgOnly) {
       failures.push(
         `${JSON.stringify(def.name)}'s arguments are ${JSON.stringify(args)}, expected exactly ` +
+          `[{ name: "projectId", required: true }].`
+      );
+    }
+  }
+
+  for (const name of EXPECTED_BUILD_NAMES) {
+    const def = definitions.find((d) => d.name === name);
+    if (!def) {
+      failures.push(
+        `Expected build-loop prompt ${JSON.stringify(name)} is missing from PROMPT_DEFINITIONS. ` +
+          `If it was intentionally removed, update EXPECTED_BUILD_NAMES in scripts/check-prompt-mirror.mjs ` +
+          `in the same PR, and confirm the main app no longer serves it.`
+      );
+      continue;
+    }
+    const args = def.arguments ?? [];
+    const projectArgOnly =
+      args.length === 1 && args[0]?.name === "projectId" && args[0]?.required === true;
+    if (!projectArgOnly) {
+      failures.push(
+        `${JSON.stringify(name)}'s arguments are ${JSON.stringify(args)}, expected exactly ` +
           `[{ name: "projectId", required: true }].`
       );
     }
