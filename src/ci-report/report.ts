@@ -73,7 +73,13 @@ export function buildReport(
 
 interface ReportResponse {
   resolved?: Array<{ ac_code: string; outcome: string }>;
-  ignored?: Array<{ ac_code: string; reason: string; status?: string }>;
+  ignored?: Array<{
+    ac_code: string;
+    reason: string;
+    status?: string;
+    submitted_sha?: string | null;
+    tested_sha?: string;
+  }>;
 }
 
 /** One line per criterion the report touched, plus a count line. */
@@ -84,7 +90,13 @@ export function summariseResponse(body: unknown): string[] {
   const lines = [`resolved ${resolved.length}, ignored ${ignored.length}`];
   for (const r of resolved) lines.push(`  ${r.outcome.padEnd(7)} ${r.ac_code}`);
   for (const i of ignored) {
-    lines.push(`  ignored ${i.ac_code} (${i.reason}${i.status ? `: ${i.status}` : ""})`);
+    const detail =
+      i.reason === "sha_mismatch"
+        ? `: submitted ${i.submitted_sha ? i.submitted_sha.slice(0, 10) : "unknown"}, tested ${(i.tested_sha ?? "").slice(0, 10)}`
+        : i.status
+          ? `: ${i.status}`
+          : "";
+    lines.push(`  ignored ${i.ac_code} (${i.reason}${detail})`);
   }
   return lines;
 }

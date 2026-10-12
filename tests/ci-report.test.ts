@@ -109,6 +109,12 @@ describe("parsePlaywrightJson", () => {
     expect(o["checkout [AC-062] retries once"]).toBe("passed");
     expect(o["checkout [AC-063] later"]).toBe("skipped");
   });
+  it("treats a spec with no tests as skipped, not passed (nothing ran)", () => {
+    const rs = parsePlaywrightJson({
+      suites: [{ title: "f.spec.ts", specs: [{ title: "[AC-070] filtered out", tests: [] }] }],
+    });
+    expect(rs).toEqual([{ name: "[AC-070] filtered out", outcome: "skipped" }]);
+  });
   it("rejects a document that is not a report", () => {
     expect(() => parsePlaywrightJson({})).toThrow(/suites/);
   });
@@ -203,6 +209,25 @@ describe("summariseResponse", () => {
       "resolved 1, ignored 1",
       "  passed  AC-001",
       "  ignored AC-002 (not_in_review: ready)",
+    ]);
+  });
+  it("shows both shas when a verdict was ignored because the tested commit was not the submitted one", () => {
+    expect(
+      summariseResponse({
+        ignored: [
+          {
+            ac_code: "AC-001",
+            reason: "sha_mismatch",
+            submitted_sha: "1111111aaaa2222",
+            tested_sha: "2222222bbbb3333",
+          },
+          { ac_code: "AC-002", reason: "sha_mismatch", submitted_sha: null, tested_sha: "2222222bbbb" },
+        ],
+      })
+    ).toEqual([
+      "resolved 0, ignored 2",
+      "  ignored AC-001 (sha_mismatch: submitted 1111111aaa, tested 2222222bbb)",
+      "  ignored AC-002 (sha_mismatch: submitted unknown, tested 2222222bbb)",
     ]);
   });
   it("tolerates an empty or odd body", () => {

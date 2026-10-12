@@ -148,9 +148,11 @@ export function parsePlaywrightJson(input: unknown): TestResult[] {
       const name = [...titles, spec.title ?? ""].filter(Boolean).join(" ");
       if (!name) continue;
       const statuses = (spec.tests ?? []).map((t) => t.status ?? "");
+      // A spec with no test entries did not run (filtered out by a project or
+      // grep); it proves nothing, so it is skipped rather than passed.
       const outcome: TestOutcome = statuses.includes("unexpected")
         ? "failed"
-        : statuses.length > 0 && statuses.every((s) => s === "skipped")
+        : statuses.length === 0 || statuses.every((s) => s === "skipped")
           ? "skipped"
           : "passed";
       results.push({ name, outcome });
