@@ -85,7 +85,7 @@ Same format as Cursor. Add to your Windsurf MCP settings file and restart.
 
 ## Tools
 
-The server exposes **36 tools** via the `vibemap_` prefix.
+The server exposes **48 tools** via the `vibemap_` prefix.
 
 **Projects & context**
 
@@ -94,7 +94,7 @@ The server exposes **36 tools** via the `vibemap_` prefix.
 | `vibemap_list_projects` | List all your projects |
 | `vibemap_create_project` | Create a new project (use before `analyze_codebase`) |
 | `vibemap_get_project_context` | Load full project specs into agent context |
-| `vibemap_get_atomic_blueprint` | Get the code-shaped atomic blueprint for LLM generation |
+| `vibemap_get_atomic_blueprint` | Get the code-shaped blueprint of the whole project (large; for scaffolds and audits, not for building a single ticket: use `vibemap_get_criterion_context` there) |
 | `vibemap_list_access_rules` | List table- and page-level access rules (with `op_conditions`) for RLS + auth |
 | `vibemap_get_page_source` | Retrieve a page and its section source code |
 
@@ -118,7 +118,7 @@ The server exposes **36 tools** via the `vibemap_` prefix.
 |---|---|
 | `vibemap_list_features` | List features with filtering |
 | `vibemap_create_feature` | Create a new feature |
-| `vibemap_update_feature` | Update feature fields or status (validates transitions) |
+| `vibemap_update_feature` | Update feature fields or status (validates transitions). For spec authoring only: while building, use `vibemap_propose_spec_change` |
 
 **User stories**
 
@@ -126,7 +126,7 @@ The server exposes **36 tools** via the `vibemap_` prefix.
 |---|---|
 | `vibemap_list_user_stories` | List stories by project or feature |
 | `vibemap_create_user_story` | Create a user story |
-| `vibemap_update_user_story` | Update story fields or status (validates transitions) |
+| `vibemap_update_user_story` | Update story fields or status (validates transitions). For spec authoring only: while building, use `vibemap_propose_spec_change` |
 
 **Acceptance criteria**
 
@@ -134,20 +134,28 @@ The server exposes **36 tools** via the `vibemap_` prefix.
 |---|---|
 | `vibemap_list_acceptance_criteria` | Fetch BDD criteria |
 | `vibemap_create_acceptance_criterion` | Create a BDD acceptance criterion |
-| `vibemap_update_acceptance_criterion` | Update a criterion's content (Given/When/Then, description). Status is not writable here: use the lifecycle tools below |
+| `vibemap_update_acceptance_criterion` | Update a criterion's content (Given/When/Then, description). Status is not writable here: use the lifecycle tools below. For spec authoring only: while building, use `vibemap_propose_spec_change` |
 
 **Kanban — board & agentic lifecycle**
 
 | Tool | Description |
 |---|---|
 | `vibemap_get_kanban_board` | Get a real-time board view |
-| `vibemap_get_next_ready_criterion` | Get the highest-priority criterion ready to work on |
+| `vibemap_get_execution_plan` | The build order: criteria grouped by sprint in dependency order, with state |
+| `vibemap_get_next_ready_criterion` | Get the next criterion to work on, its story bundle, and a `reason` when nothing is claimable |
+| `vibemap_claim_story` | Claim every claimable criterion of a story at once; returns a context pack for each |
 | `vibemap_claim_criterion` | Claim a criterion (`ready` → `in_progress`) |
-| `vibemap_report_progress` | Append a progress event to a criterion |
-| `vibemap_submit_for_review` | Submit a criterion for review (→ `review_pending`) |
-| `vibemap_resolve_review` | Resolve a review (`passed` / `failed`) |
+| `vibemap_get_criterion_context` | Everything needed to build one criterion in a few thousand tokens (use instead of the whole blueprint) |
+| `vibemap_report_progress` | Heartbeat with the current `phase`, plus optional plan, files and test counts |
+| `vibemap_submit_for_review` | Submit a criterion for review with the changed files and the named tests that prove it (→ `in_review`) |
+| `vibemap_get_criterion_evidence` | Submission history of a criterion: files, tests and verdict per attempt |
+| `vibemap_rework_criterion` | Send a criterion that failed review back to `ready` to build it again |
+| `vibemap_resolve_review` | Resolve a review (`passed` / `failed`); needs a CI-review token or a signed-in user |
 | `vibemap_block_criterion` | Block a criterion with a category and reason |
+| `vibemap_ask_user` | Ask the project owner a question when the spec is unclear (blocks the criterion until answered) |
+| `vibemap_get_answers` | Collect the answers to your questions |
 | `vibemap_unblock_criterion` | Unblock a criterion with a resolution |
+| `vibemap_propose_spec_change` | Propose a spec change for the owner to review when the code must differ; never edits the spec |
 | `vibemap_list_kanban_events` | Kanban transition history (for incremental sync) |
 | `vibemap_update_kanban_status` | ⚠️ Deprecated — use the lifecycle tools above |
 
@@ -155,7 +163,10 @@ The server exposes **36 tools** via the `vibemap_` prefix.
 
 | Tool | Description |
 |---|---|
-| `vibemap_list_changesets` | List changesets (your writes + history) with op counts; `includeOps` for diffs |
+| `vibemap_list_changesets` | List changesets (your writes + history) with op counts; `includeOps` for diffs, `sinceSeq` as a cursor |
+| `vibemap_get_spec_delta` | What changed in the spec since a sequence number, and which criteria that affects |
+| `vibemap_get_release_work_list` | A release's work grouped as new, modified and removed (with the code paths to delete) |
+| `vibemap_get_release_diff` | A release's raw diff against its baseline |
 | `vibemap_sync_changes` | Report changed paths since the last sync so VibeMap can flag spec drift |
 
 **Codebase**
@@ -187,6 +198,8 @@ The server also exposes **prompts** — invocable workflows your IDE surfaces as
 | `code_map` | `projectId`, `localPath?` | Build and submit a structural code map |
 | `load_context` | `projectId` | Load the project's spec context into your agent |
 | `kanban` | `projectId` | Show the project's kanban board |
+| `build_sprint` | `projectId` | Build the ready work test first while the board follows live; CI verifies, the agent never marks anything done |
+| `release_next` | `projectId` | Build the next release: new and modified items, and delete what was removed |
 
 ### `gen_*` — run VibeMap's own generators
 
