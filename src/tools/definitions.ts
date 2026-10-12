@@ -504,7 +504,7 @@ export const TOOL_DEFINITIONS: Tool[] = [
   {
     name: "vibemap_list_acceptance_criteria",
     description:
-      "List acceptance criteria for a story, feature, or project. Returns BDD-formatted criteria (Given/When/Then) with status.",
+      "List acceptance criteria for a story, feature, or project. Returns BDD-formatted criteria (Given/When/Then) with their current status. Status is read-only here: it only moves through the claim, report-progress, submit-for-review and block/unblock tools, and a criterion is marked passed or failed by CI or a human reviewer, never by the agent that built it.",
     annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: {
       type: "object",
@@ -512,7 +512,11 @@ export const TOOL_DEFINITIONS: Tool[] = [
         storyId: { type: "string" },
         featureId: { type: "string" },
         projectId: { type: "string" },
-        status: { type: "string", enum: ["draft", "pending", "passed", "failed"] },
+        status: {
+          type: "string",
+          enum: ["draft", "ready", "in_progress", "in_review", "passed", "failed", "blocked"],
+          description: "Filter by current status",
+        },
         limit: { type: "number", default: 50 },
         offset: { type: "number", default: 0 },
       },
@@ -521,7 +525,7 @@ export const TOOL_DEFINITIONS: Tool[] = [
   {
     name: "vibemap_create_acceptance_criterion",
     description:
-      "Create a new acceptance criterion for a user story in BDD format (Given/When/Then). Use this to flesh out what 'done' means for a story before or during implementation. You can call this multiple times to add multiple scenarios (happy path, error cases, edge cases) to the same story.",
+      "Create a new acceptance criterion for a user story in BDD format (Given/When/Then). Use this to flesh out what 'done' means for a story before or during implementation. You can call this multiple times to add multiple scenarios (happy path, error cases, edge cases) to the same story. New criteria always start as drafts; they become available to build once the spec is approved.",
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
     inputSchema: {
       type: "object",
@@ -539,11 +543,6 @@ export const TOOL_DEFINITIONS: Tool[] = [
           enum: ["happy_path", "error_scenario", "edge_case"],
           default: "happy_path",
         },
-        status: {
-          type: "string",
-          enum: ["draft", "pending", "passed", "failed"],
-          default: "draft",
-        },
       },
       required: ["storyId", "givenCondition", "whenAction", "thenOutcome"],
     },
@@ -551,13 +550,12 @@ export const TOOL_DEFINITIONS: Tool[] = [
   {
     name: "vibemap_update_acceptance_criterion",
     description:
-      "Update an acceptance criterion's status or content. Use status 'passed' when your code satisfies the criterion, 'failed' when it does not.",
+      "Update the content of an acceptance criterion (Given/When/Then, description, scenario category). This tool does not change status. To work on a criterion use vibemap_claim_criterion, then vibemap_report_progress, then vibemap_submit_for_review when your code satisfies it; CI or a human reviewer decides whether it passes.",
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
     inputSchema: {
       type: "object",
       properties: {
         criterionId: { type: "string" },
-        status: { type: "string", enum: ["draft", "pending", "passed", "failed"] },
         givenCondition: { type: "string" },
         whenAction: { type: "string" },
         thenOutcome: { type: "string" },
@@ -575,7 +573,7 @@ export const TOOL_DEFINITIONS: Tool[] = [
   {
     name: "vibemap_update_kanban_status",
     description:
-      "[DEPRECATED — use the typed transition tools (claim, report_progress, submit_for_review, resolve_review, block, unblock) instead. This tool will be removed in a future release.] Atomically advance or update the kanban status of a feature, user story, or acceptance criterion. Validates allowed state transitions and prevents invalid moves. Call this when you start or finish implementing something.\n\nFeature stages: draft → open → in_progress → completed\nStory stages: draft → has_criteria → open → in_progress → completed\nCriterion stages: draft → pending → passed | failed",
+      "[DEPRECATED — use the typed transition tools (claim, report_progress, submit_for_review, resolve_review, block, unblock) instead. This tool will be removed in a future release.] Atomically advance or update the kanban status of a feature or user story. Validates allowed state transitions and prevents invalid moves. Works for features and user stories only. Acceptance criteria cannot be moved with this tool: use vibemap_claim_criterion, vibemap_report_progress, vibemap_submit_for_review, vibemap_block_criterion and vibemap_unblock_criterion, which record who moved what and why.\n\nFeature stages: draft → open → in_progress → completed\nStory stages: draft → has_criteria → open → in_progress → completed",
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
     inputSchema: {
       type: "object",

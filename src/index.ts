@@ -307,7 +307,6 @@ const ListCriteriaSchema = z
 
 const UpdateCriterionSchema = z.object({
   criterionId: z.string().min(1, "criterionId is required"),
-  status: CriterionStatusEnum.optional(),
   givenCondition: z.string().optional().describe("Given condition (BDD format)"),
   whenAction: z.string().optional().describe("When action (BDD format)"),
   thenOutcome: z.string().optional().describe("Expected outcome (BDD format)"),
@@ -334,7 +333,6 @@ const CreateCriterionSchema = z.object({
     .enum(["happy_path", "error_scenario", "edge_case"])
     .optional()
     .default("happy_path"),
-  status: CriterionStatusEnum.optional().default("draft"),
 });
 
 // Kanban status tool
@@ -578,7 +576,34 @@ function stripFields(data: unknown, remove: string[]): unknown {
   return out;
 }
 
-const GLOBAL_STRIP = ["slug", "embedding", "created_at", "updated_at", "original_prompt"];
+/**
+ * Criterion status is not a field an agent writes. It moves through the typed
+ * transition tools, which the server checks and records; a verdict of passed or
+ * failed comes from CI or a human reviewer. Returned instead of silently
+ * dropping a `status` argument, so the agent knows its request did nothing.
+ */
+const CRITERION_STATUS_NOT_WRITABLE =
+  "Criterion status cannot be set directly. Use vibemap_claim_criterion to start work, " +
+  "vibemap_report_progress to record progress, and vibemap_submit_for_review when your code " +
+  "satisfies the criterion. CI or a human reviewer then marks it passed or failed.";
+
+function criterionStatusRefusal() {
+  return {
+    isError: true as const,
+    content: [{ type: "text" as const, text: CRITERION_STATUS_NOT_WRITABLE }],
+  };
+}
+
+// `app_architecture` is the full architecture config; it can run past 100k
+// characters and no tool contract reads it.
+const GLOBAL_STRIP = [
+  "slug",
+  "embedding",
+  "created_at",
+  "updated_at",
+  "original_prompt",
+  "app_architecture",
+];
 
 // Entity-specific strip lists for read/context surfaces. These drop planning
 // metadata (priority, status, effort, etc.) that bloats the context window but
@@ -812,6 +837,9 @@ export async function handleCallTool(request: CallToolRequest) {
           "goals",
           "future_considerations",
           "app_architecture_prefs",
+          // The full architecture config can run to 100k+ characters and nothing
+          // in this tool's contract reads it.
+          "app_architecture",
           "analysis",
         ];
         const cleanProject = stripFields(project, projectFieldsToRemove) as Record<string, unknown>;
@@ -1096,6 +1124,10 @@ export async function handleCallTool(request: CallToolRequest) {
 
       // ── vibemap_create_acceptance_criterion ───────────────────────────────
       case "vibemap_create_acceptance_criterion": {
+        const requestedStatus = (args as { status?: unknown } | undefined)?.status;
+        if (requestedStatus !== undefined && requestedStatus !== "draft") {
+          return criterionStatusRefusal();
+        }
         const parsed = CreateCriterionSchema.parse(args);
         const { storyId, givenCondition, whenAction, thenOutcome, ...rest } = parsed;
         const client = getVibeClient();
@@ -1106,7 +1138,6 @@ export async function handleCallTool(request: CallToolRequest) {
           then_outcome: thenOutcome,
           description: rest.description,
           scenario_category: rest.scenarioCategory,
-          status: rest.status,
         });
         const clean = stripFields(result, GLOBAL_STRIP);
         return { content: [{ type: "text", text: JSON.stringify(clean, null, 2) }] };
@@ -1115,10 +1146,11 @@ export async function handleCallTool(request: CallToolRequest) {
       // ── vibemap_update_acceptance_criterion ───────────────────────────────
       case "vibemap_update_acceptance_criterion": {
         const parsed = UpdateCriterionSchema.parse(args);
+        if ((args as { status?: unknown } | undefined)?.status !== undefined) {
+          return criterionStatusRefusal();
+        }
         const { criterionId, givenCondition, whenAction, thenOutcome, ...rest } = parsed;
         const client = getVibeClient();
-        const guard = await guardStatusTransition(client, "criterion", criterionId, rest.status);
-        if (guard) return guard;
         const result = await client.updateAcceptanceCriterion(criterionId, {
           ...rest,
           given_condition: givenCondition,
@@ -1133,6 +1165,7 @@ export async function handleCallTool(request: CallToolRequest) {
       case "vibemap_update_kanban_status": {
         const parsed = UpdateKanbanStatusSchema.parse(args);
         const { entityType, entityId, newStatus, notes } = parsed;
+        if (entityType === "criterion") return criterionStatusRefusal();
         const client = getVibeClient();
 
         // Fetch current status
@@ -1140,13 +1173,9 @@ export async function handleCallTool(request: CallToolRequest) {
         if (entityType === "feature") {
           const feature = (await client.getFeature(entityId)) as Record<string, unknown>;
           currentStatus = feature.status as string;
-        } else if (entityType === "story") {
+        } else {
           const story = (await client.getUserStory(entityId)) as Record<string, unknown>;
           currentStatus = story.status as string;
-        } else {
-          // criterion — fetch by ID
-          const result = await client.getCriterion(entityId);
-          currentStatus = (result?.status as string) ?? "draft";
         }
 
         // Validate transition
@@ -1166,12 +1195,8 @@ export async function handleCallTool(request: CallToolRequest) {
         let updated: unknown;
         if (entityType === "feature") {
           updated = await client.updateFeature(entityId, { status: newStatus as FeatureStatus });
-        } else if (entityType === "story") {
-          updated = await client.updateUserStory(entityId, { status: newStatus as StoryStatus });
         } else {
-          updated = await client.updateAcceptanceCriterion(entityId, {
-            status: newStatus as CriterionStatus,
-          });
+          updated = await client.updateUserStory(entityId, { status: newStatus as StoryStatus });
         }
 
         const noteStr = notes ? ` Note: ${notes}` : "";
