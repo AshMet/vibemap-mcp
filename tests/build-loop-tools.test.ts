@@ -190,8 +190,8 @@ describe("the other new tools dispatch to the client", () => {
   });
 
   it("get_answers / get_spec_delta / release tools / next ready scope / changeset cursor", async () => {
-    await call("vibemap_get_answers", { projectId: "p1", criterionId: "c1", since: "2026-10-12T00:00:00Z" });
-    expect(client.getAnswers).toHaveBeenCalledWith("p1", "c1", "2026-10-12T00:00:00Z");
+    await call("vibemap_get_answers", { criterionId: "c1", since: "2026-10-12T00:00:00Z" });
+    expect(client.getAnswers).toHaveBeenCalledWith("c1", "2026-10-12T00:00:00Z");
     await call("vibemap_get_spec_delta", { projectId: "p1", sinceSeq: 0 });
     expect(client.getSpecDelta).toHaveBeenCalledWith("p1", 0, undefined);
     await call("vibemap_get_release_work_list", { releaseId: "r1" });
@@ -243,6 +243,20 @@ describe("tool descriptions steer the build loop", () => {
     const d = (await tool("vibemap_sync_changes")).description;
     expect(d).not.toMatch(/to clear the drift/i);
     expect(d).toMatch(/does not clear/i);
+  });
+
+  it("propose_spec_change is honest that staged proposals have no review screen yet", async () => {
+    const d = (await tool("vibemap_propose_spec_change")).description;
+    expect(d).toMatch(/review screen for staged proposals is coming/);
+    expect(d).toMatch(/not accepted|does NOT edit the spec/);
+  });
+
+  it("sync_changes sends spec changes through propose_spec_change while building", async () => {
+    expect((await tool("vibemap_sync_changes")).description).toContain("vibemap_propose_spec_change");
+  });
+
+  it("get_answers needs only the criterion", async () => {
+    expect((await tool("vibemap_get_answers")).inputSchema.required).toEqual(["criterionId"]);
   });
 
   it("submit and progress schemas require the fields the backend requires", async () => {

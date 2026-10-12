@@ -180,90 +180,62 @@ describe("questions", () => {
     expect(seen.body).toEqual({ category: "other", reason: "why" });
   });
 
-  it("getAnswers keeps only this criterion's answered events and reports waiting", async () => {
+  const questionsRoute = `${baseUrl}/api/mcp/kanban/criterion/c1/questions`;
+
+  it("getAnswers reads the criterion's own questions and keeps the answered ones", async () => {
+    let seenUrl = "";
     server.use(
-      http.get(`${baseUrl}/api/mcp/kanban/projects/p1/events`, ({ request }) => {
-        expect(new URL(request.url).searchParams.get("limit")).toBe("1000");
+      http.get(questionsRoute, ({ request }) => {
+        seenUrl = request.url;
         return HttpResponse.json({
-          events: [
-            // newest first
-            {
-              entity_type: "criterion",
-              entity_id: "c1",
-              to_status: "ready",
-              created_at: "2026-10-12T10:05:00Z",
-              payload: {
-                resolution: "Answered: EUR",
-                question_id: "q1",
-                question: "Which currency?",
-                answer: "EUR",
-                decision_id: "d1",
-              },
-            },
-            {
-              entity_type: "criterion",
-              entity_id: "other",
-              to_status: "ready",
-              created_at: "2026-10-12T10:04:00Z",
-              payload: { question_id: "q9", question: "x", answer: "not mine" },
-            },
-            {
-              entity_type: "criterion",
-              entity_id: "c1",
-              to_status: "blocked",
-              created_at: "2026-10-12T10:00:00Z",
-              payload: { question: "Which currency?" },
-            },
+          criterion_id: "c1",
+          waiting: false,
+          questions: [
+            { id: "q2", status: "answered", question: "Cash or card?", answer: "Card", decision_id: "d2", answered_at: "2026-10-12T10:05:00Z" },
+            { id: "q1", status: "answered", question: "Currency?", answer: "EUR", decision_id: "d1", answered_at: "2026-10-12T09:00:00Z" },
+            { id: "q0", status: "dismissed", question: "x", answer: null, answered_at: null },
           ],
         });
       })
     );
-    const r = await client.getAnswers("p1", "c1");
-    expect(r.answers).toEqual([
-      {
-        question_id: "q1",
-        question: "Which currency?",
-        answer: "EUR",
-        decision_id: "d1",
-        answered_at: "2026-10-12T10:05:00Z",
-      },
-    ]);
-    expect(r.latestStatus).toBe("ready");
+    const r = await client.getAnswers("c1");
+    expect(new URL(seenUrl).searchParams.get("limit")).toBe("50");
     expect(r.waiting).toBe(false);
+    expect(r.answers.map((a) => a.question_id)).toEqual(["q2", "q1"]);
+    expect(r.answers[0]).toEqual({
+      question_id: "q2",
+      question: "Cash or card?",
+      answer: "Card",
+      decision_id: "d2",
+      answered_at: "2026-10-12T10:05:00Z",
+    });
   });
 
-  it("getAnswers reports waiting while the newest event is the block", async () => {
+  it("getAnswers honours since", async () => {
     server.use(
-      http.get(`${baseUrl}/api/mcp/kanban/projects/p1/events`, () =>
+      http.get(questionsRoute, () =>
         HttpResponse.json({
-          events: [
-            {
-              entity_type: "criterion",
-              entity_id: "c1",
-              to_status: "blocked",
-              created_at: "2026-10-12T10:00:00Z",
-              payload: { question: "Which currency?" },
-            },
+          waiting: false,
+          questions: [
+            { id: "q2", status: "answered", question: "a", answer: "A", answered_at: "2026-10-12T10:05:00Z" },
+            { id: "q1", status: "answered", question: "b", answer: "B", answered_at: "2026-10-12T09:00:00Z" },
           ],
         })
       )
     );
-    const r = await client.getAnswers("p1", "c1");
-    expect(r.answers).toEqual([]);
-    expect(r.waiting).toBe(true);
+    const r = await client.getAnswers("c1", "2026-10-12T09:30:00Z");
+    expect(r.answers.map((a) => a.question_id)).toEqual(["q2"]);
   });
 
-  it("getAnswers handles an empty feed", async () => {
+  it("getAnswers reports waiting while a question is open, and handles none", async () => {
     server.use(
-      http.get(`${baseUrl}/api/mcp/kanban/projects/p1/events`, () =>
-        HttpResponse.json({ events: [] })
+      http.get(questionsRoute, () =>
+        HttpResponse.json({ waiting: true, questions: [{ id: "q1", status: "open", question: "q", answer: null }] })
       )
     );
-    expect(await client.getAnswers("p1", "c1")).toEqual({
-      answers: [],
-      latestStatus: null,
-      waiting: false,
-    });
+    expect(await client.getAnswers("c1")).toEqual({ answers: [], waiting: true });
+    server.use(http.get(questionsRoute, () => HttpResponse.json({ waiting: false, questions: [] })));
+    expect(await client.getAnswers("c1")).toEqual({ answers: [], waiting: false });
   });
 });
 

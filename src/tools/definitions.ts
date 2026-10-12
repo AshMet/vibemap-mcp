@@ -939,17 +939,16 @@ export const TOOL_DEFINITIONS: Tool[] = [
   {
     name: "vibemap_get_answers",
     description:
-      "Collect the answers to questions you asked with vibemap_ask_user. Returns each answer found for the criterion, and `waiting: true` while the criterion is still blocked on an unanswered question. Pass `since` (ISO timestamp, for example the time you asked) to limit how far back to look.",
+      "Collect the answers to questions you asked with vibemap_ask_user. Returns each answer for the criterion, and `waiting: true` while a question is still open. Pass `since` (ISO timestamp, for example the time you asked) to return only answers given after it.",
     annotations: { readOnlyHint: true, destructiveHint: false },
     inputSchema: {
       type: "object",
-      required: ["projectId", "criterionId"],
+      required: ["criterionId"],
       properties: {
-        projectId: { type: "string" },
         criterionId: { type: "string" },
         since: {
           type: "string",
-          description: "ISO timestamp; only events strictly after this are considered",
+          description: "ISO timestamp; only answers given after this are returned",
         },
       },
     },
@@ -994,7 +993,7 @@ export const TOOL_DEFINITIONS: Tool[] = [
   {
     name: "vibemap_propose_spec_change",
     description:
-      "Propose a change to the spec when the code has to differ from it (for example a field the spec missed). This stages the proposal for the project's owner to review; it does NOT edit the spec. While building, always use this instead of the update_* tools. Give the entity, the fields you want changed with their new values, and a short rationale; add evidence (a file path, test name or error) if you have it.",
+      "Propose a change to the spec when the code has to differ from it (for example a field the spec missed). This stages the proposal; it does NOT edit the spec. The review screen for staged proposals is coming, so until it ships the owner will not see it in the app: also list it in your final summary. While building, always use this instead of the update_* tools. Give the entity, the content fields you want changed with their new values (only that entity's content fields are accepted: not status, ids, codes, assignment or sprint) and a short rationale; add evidence (a file path, test name or error) if you have it. An identical pending proposal is returned instead of duplicated; at most 10 per minute and 50 pending per project.",
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false },
     inputSchema: {
       type: "object",
@@ -1008,7 +1007,8 @@ export const TOOL_DEFINITIONS: Tool[] = [
         entityId: { type: "string", description: "UUID of the entity to change" },
         fields: {
           type: "object",
-          description: "Field names mapped to the new values you propose (max 20 fields)",
+          description:
+            "Content field names mapped to the new values you propose (max 20). Allowed by entity: feature (name, description, priority, category, complexity, effort, business_value); user_story (title, description, i_want_to, so_that, user_role, priority, estimated_effort); acceptance_criterion (title, description, given_condition, when_action, then_outcome, scenario_category); page (name, description, path, page_type, layout_intent, api_endpoints, ui_states, state_requirements, priority); persona (name, tagline, user_role, narrative, avatar_description, demographics, psychographics, goals_and_needs, pain_points, product_specific, behavioral_patterns, communication_preferences, user_journey).",
         },
         rationale: { type: "string", description: "Why the spec should change (1-2000 chars)" },
         evidence: {
@@ -1107,7 +1107,7 @@ export const TOOL_DEFINITIONS: Tool[] = [
   {
     name: "vibemap_sync_changes",
     description:
-      "Report codebase changes since the last sync so VibeMap can flag spec drift. Workflow: 1) call vibemap_get_code_map and read anchor.commitSha; 2) run `git diff --name-only <commitSha>..HEAD` (plus untracked files from `git status --porcelain`); 3) call this tool with the changed paths and your current HEAD sha. The response lists affected map units and features — update the stale specs with vibemap_update_feature / vibemap_update_user_story / vibemap_update_acceptance_criterion (all changeset-audited). The drift report stays on the project until the flagged items are resolved or dismissed in VibeMap; re-submitting the code map does not clear it.",
+      "Report codebase changes since the last sync so VibeMap can flag spec drift. Workflow: 1) call vibemap_get_code_map and read anchor.commitSha; 2) run `git diff --name-only <commitSha>..HEAD` (plus untracked files from `git status --porcelain`); 3) call this tool with the changed paths and your current HEAD sha. The response lists affected map units and features — update the stale specs with vibemap_update_feature / vibemap_update_user_story / vibemap_update_acceptance_criterion (all changeset-audited). The drift report stays on the project until the flagged items are resolved or dismissed in VibeMap; re-submitting the code map does not clear it. While you are building a ticket, send spec changes through vibemap_propose_spec_change rather than editing the spec.",
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     inputSchema: {
       type: "object",

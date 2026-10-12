@@ -828,38 +828,30 @@ export class VibeMapClient {
   }
 
   /**
-   * Answers a person has given to this criterion's questions. Answers are
-   * carried on the unblock events, so this reads the project's event feed and
-   * keeps the events for the one criterion. `latestStatus` is the status after
-   * the newest event seen (null when no event matched).
+   * The questions asked about a criterion and the answers a person gave, read
+   * from the criterion's own questions (newest 50). `since` keeps only answers
+   * given after that timestamp. `waiting` is true while a question is open.
    */
   async getAnswers(
-    projectId: string,
     criterionId: string,
     since?: string
-  ): Promise<{
-    answers: Array<Record<string, unknown>>;
-    latestStatus: string | null;
-    waiting: boolean;
-  }> {
-    const res = (await this.listKanbanEvents(projectId, since, 1000)) as {
-      events?: Array<Record<string, unknown>>;
-    };
-    const events = (res.events ?? []).filter(
-      (e) => e.entity_type === "criterion" && e.entity_id === criterionId
-    );
-    const answers = events
-      .map((e) => ({ e, p: (e.payload ?? {}) as Record<string, unknown> }))
-      .filter(({ p }) => typeof p.answer === "string")
-      .map(({ e, p }) => ({
-        question_id: p.question_id,
-        question: p.question,
-        answer: p.answer,
-        decision_id: p.decision_id,
-        answered_at: e.created_at,
+  ): Promise<{ answers: Array<Record<string, unknown>>; waiting: boolean }> {
+    const res = await this.request<{
+      waiting?: boolean;
+      questions?: Array<Record<string, unknown>>;
+    }>(`/api/mcp/kanban/criterion/${criterionId}/questions${this.buildQuery({ limit: 50 })}`);
+    const sinceMs = since ? Date.parse(since) : Number.NaN;
+    const answers = (res.questions ?? [])
+      .filter((q) => q.status === "answered" && typeof q.answer === "string")
+      .filter((q) => Number.isNaN(sinceMs) || Date.parse(String(q.answered_at)) > sinceMs)
+      .map((q) => ({
+        question_id: q.id,
+        question: q.question,
+        answer: q.answer,
+        decision_id: q.decision_id,
+        answered_at: q.answered_at,
       }));
-    const latestStatus = events.length > 0 ? String(events[0].to_status ?? "") || null : null;
-    return { answers, latestStatus, waiting: latestStatus === "blocked" };
+    return { answers, waiting: res.waiting === true };
   }
 
   /** What changed in the spec after a given sequence number, and which criteria that touches. */

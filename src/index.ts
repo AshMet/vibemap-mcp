@@ -528,7 +528,7 @@ const AskUserSchema = z.object({
   reason: z.string().min(1).max(2000).optional(),
 });
 
-const GetAnswersSchema = ProjectIdSchema.extend({
+const GetAnswersSchema = z.object({
   criterionId: z.string().min(1, "criterionId is required"),
   since: z.string().optional(),
 });
@@ -1504,7 +1504,7 @@ export async function handleCallTool(request: CallToolRequest) {
       case "vibemap_get_answers": {
         const parsed = GetAnswersSchema.parse(args);
         const client = getVibeClient();
-        const result = await client.getAnswers(parsed.projectId, parsed.criterionId, parsed.since);
+        const result = await client.getAnswers(parsed.criterionId, parsed.since);
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
 

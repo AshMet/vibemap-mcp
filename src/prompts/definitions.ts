@@ -118,7 +118,7 @@ export const PROMPT_DEFINITIONS: Prompt[] = [
   {
     name: "build_sprint",
     description:
-      "Build the project's ready work in the repo you have open, one story at a time and test first, while the VibeMap board follows live. Plans from the execution plan, claims a story, writes a tagged test before the code, reports progress, commits with a criterion trailer, submits the changed files and named tests, then waits for CI to verify. Asks a question when the spec is unclear and proposes a spec change (never edits the spec) when the code must differ. Runs on your own model.",
+      "Build the project's ready work in the repo you have open, one story at a time and test first, while the VibeMap board follows live. Plans from the execution plan, claims a story, writes a tagged test before the code, reports progress, commits with a criterion trailer, submits each criterion with its changed files and named tests, then waits for CI to verify (the pinned ci-report command, npx -y @vibemap.ai/mcp-server@2.11.0 ci-report, reports the results). Asks a question when the spec is unclear and proposes a spec change (never edits the spec) when the code must differ. Runs on your own model.",
     arguments: [PROJECT_ARG],
   },
   {
