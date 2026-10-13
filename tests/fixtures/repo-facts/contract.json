@@ -30,31 +30,21 @@
           "nullable": false
         }
       ],
-      "primary_key": [
-        "id"
-      ],
+      "primary_key": ["id"],
       "foreign_keys": [
         {
-          "columns": [
-            "post_id"
-          ],
+          "columns": ["post_id"],
           "references": {
             "table": "posts",
-            "columns": [
-              "id"
-            ]
+            "columns": ["id"]
           },
           "on_delete": "CASCADE"
         },
         {
-          "columns": [
-            "author_id"
-          ],
+          "columns": ["author_id"],
           "references": {
             "table": "profiles",
-            "columns": [
-              "id"
-            ]
+            "columns": ["id"]
           }
         }
       ],
@@ -102,19 +92,13 @@
           "nullable": true
         }
       ],
-      "primary_key": [
-        "id"
-      ],
+      "primary_key": ["id"],
       "foreign_keys": [
         {
-          "columns": [
-            "author_id"
-          ],
+          "columns": ["author_id"],
           "references": {
             "table": "profiles",
-            "columns": [
-              "id"
-            ]
+            "columns": ["id"]
           },
           "on_delete": "CASCADE"
         }
@@ -142,19 +126,13 @@
           "default": "now()"
         }
       ],
-      "primary_key": [
-        "id"
-      ],
+      "primary_key": ["id"],
       "foreign_keys": [
         {
-          "columns": [
-            "id"
-          ],
+          "columns": ["id"],
           "references": {
             "table": "auth.users",
-            "columns": [
-              "id"
-            ]
+            "columns": ["id"]
           },
           "on_delete": "CASCADE"
         }
@@ -167,9 +145,7 @@
       "table": "comments",
       "name": "Comment authors insert",
       "command": "INSERT",
-      "roles": [
-        "authenticated"
-      ],
+      "roles": ["authenticated"],
       "source_file": "supabase/migrations/20240201000000_publishing.sql",
       "with_check": "auth.uid() = author_id"
     },
@@ -177,10 +153,7 @@
       "table": "posts",
       "name": "Anyone can read published posts",
       "command": "SELECT",
-      "roles": [
-        "anon",
-        "authenticated"
-      ],
+      "roles": ["anon", "authenticated"],
       "source_file": "supabase/migrations/20240101000000_init.sql",
       "using": "status = 'published'"
     },
@@ -188,9 +161,7 @@
       "table": "posts",
       "name": "Authors manage their posts",
       "command": "ALL",
-      "roles": [
-        "authenticated"
-      ],
+      "roles": ["authenticated"],
       "source_file": "supabase/migrations/20240101000000_init.sql",
       "using": "auth.uid() = author_id",
       "with_check": "auth.uid() = author_id"
@@ -214,21 +185,14 @@
       "kind": "api",
       "file": "app/api/posts/route.ts",
       "dynamic_segments": [],
-      "methods": [
-        "GET",
-        "POST"
-      ]
+      "methods": ["GET", "POST"]
     },
     {
       "path": "/api/posts/[id]/comments",
       "kind": "api",
       "file": "app/api/posts/[id]/comments/route.ts",
-      "dynamic_segments": [
-        "id"
-      ],
-      "methods": [
-        "GET"
-      ]
+      "dynamic_segments": ["id"],
+      "methods": ["GET"]
     },
     {
       "path": "/posts",
@@ -240,31 +204,20 @@
       "path": "/posts/[id]",
       "kind": "page",
       "file": "app/posts/[id]/page.tsx",
-      "dynamic_segments": [
-        "id"
-      ]
+      "dynamic_segments": ["id"]
     }
   ],
   "clusters": [
     {
       "id": "about",
-      "files": [
-        "app/(marketing)/about/page.tsx"
-      ],
-      "route_paths": [
-        "/about"
-      ],
+      "files": ["app/(marketing)/about/page.tsx"],
+      "route_paths": ["/about"],
       "tables": []
     },
     {
       "id": "home",
-      "files": [
-        "app/_components/Shell.tsx",
-        "app/page.tsx"
-      ],
-      "route_paths": [
-        "/"
-      ],
+      "files": ["app/_components/Shell.tsx", "app/page.tsx"],
+      "route_paths": ["/"],
       "tables": []
     },
     {
@@ -279,16 +232,8 @@
         "lib/db.ts",
         "lib/posts.ts"
       ],
-      "route_paths": [
-        "/api/posts",
-        "/api/posts/[id]/comments",
-        "/posts",
-        "/posts/[id]"
-      ],
-      "tables": [
-        "comments",
-        "posts"
-      ]
+      "route_paths": ["/api/posts", "/api/posts/[id]/comments", "/posts", "/posts/[id]"],
+      "tables": ["comments", "posts"]
     }
   ],
   "warnings": []
