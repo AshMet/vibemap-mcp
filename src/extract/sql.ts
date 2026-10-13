@@ -476,13 +476,20 @@ export function parseCreatePolicy(sql: string, file: string): RepoFactsPolicy {
 
   let command: PolicyCommand = "ALL";
   let roles: string[] = ["public"];
+  let permissive = true;
   let using: string | undefined;
   let withCheck: string | undefined;
 
   while (i < toks.length) {
     const t = toks[i];
     if (isWord(t, "AS")) {
-      i += 2; // PERMISSIVE | RESTRICTIVE
+      if (isWord(toks[i + 1], "RESTRICTIVE")) permissive = false;
+      else if (!isWord(toks[i + 1], "PERMISSIVE")) {
+        throw new PolicyParseError(
+          `expected PERMISSIVE or RESTRICTIVE after AS, got "${toks[i + 1]?.text}"`
+        );
+      }
+      i += 2;
     } else if (isWord(t, "FOR")) {
       const cmd = toks[i + 1]?.text.toUpperCase();
       if (!["ALL", "SELECT", "INSERT", "UPDATE", "DELETE"].includes(cmd ?? "")) {
@@ -521,6 +528,7 @@ export function parseCreatePolicy(sql: string, file: string): RepoFactsPolicy {
     name: policyName.name.name,
     command,
     roles,
+    permissive,
     source_file: file,
   };
   if (using !== undefined) policy.using = using;

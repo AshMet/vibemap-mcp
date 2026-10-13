@@ -47,6 +47,11 @@ export interface RepoFactsPolicy {
   name: string;
   command: PolicyCommand;
   roles: string[];
+  /**
+   * `false` for `AS RESTRICTIVE`. A restrictive policy only narrows what the
+   * permissive policies on the table allow; it never grants access by itself.
+   */
+  permissive: boolean;
   using?: string;
   with_check?: string;
   source_file: string;

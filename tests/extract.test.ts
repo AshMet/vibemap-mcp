@@ -56,8 +56,9 @@ describe("RepoFacts contract", () => {
     }
     for (const p of contract.policies) {
       for (const k of Object.keys(p)) {
-        expect(["table", "name", "command", "roles", "using", "with_check", "source_file"]).toContain(k);
+        expect(["table", "name", "command", "roles", "permissive", "using", "with_check", "source_file"]).toContain(k);
       }
+      expect(typeof p.permissive).toBe("boolean");
     }
     for (const r of contract.routes) {
       for (const k of Object.keys(r)) {
@@ -113,9 +114,11 @@ describe("extractRepoFacts: next-supabase", () => {
   it("reads real policies and applies DROP POLICY", () => {
     expect(facts.policies.map((p) => `${p.table}:${p.name}:${p.command}`)).toEqual([
       "comments:Comment authors insert:INSERT",
+      "comments:Only authors delete comments:DELETE",
       "posts:Anyone can read published posts:SELECT",
       "posts:Authors manage their posts:ALL",
     ]);
+    expect(facts.policies.map((p) => p.permissive)).toEqual([true, false, true, true]);
     const read = facts.policies.find((p) => p.name === "Anyone can read published posts");
     expect(read?.roles).toEqual(["anon", "authenticated"]);
     expect(read?.using).toBe("status = 'published'");
@@ -217,20 +220,29 @@ describe("policies", () => {
       name: "Owners",
       command: "UPDATE",
       roles: ["authenticated", "Service Role"],
+      permissive: false,
       using: "(select auth.uid()) = owner_id",
       with_check: "owner_id IS NOT NULL",
       source_file: "m.sql",
     });
   });
 
+  it("marks AS PERMISSIVE and an unmarked policy permissive", () => {
+    expect(parseCreatePolicy("CREATE POLICY p ON t AS PERMISSIVE USING (true)", "m.sql").permissive).toBe(true);
+    expect(parseCreatePolicy("CREATE POLICY p ON t USING (true)", "m.sql").permissive).toBe(true);
+  });
+
   it("defaults to ALL commands for the public role", () => {
     const p = parseCreatePolicy("CREATE POLICY p ON s.t USING (true)", "m.sql");
-    expect(p).toMatchObject({ table: "s.t", command: "ALL", roles: ["public"], using: "true" });
+    expect(p).toMatchObject({ table: "s.t", command: "ALL", roles: ["public"], permissive: true, using: "true" });
   });
 
   it("rejects malformed policies instead of guessing", () => {
     expect(() => parseCreatePolicy("CREATE POLICY p ON t FOR MERGE USING (true)", "m.sql")).toThrow();
     expect(() => parseCreatePolicy("CREATE POLICY p ON t USING (true", "m.sql")).toThrow();
+    expect(() => parseCreatePolicy("CREATE POLICY p ON t AS SOMETIMES USING (true)", "m.sql")).toThrow(
+      /PERMISSIVE or RESTRICTIVE/
+    );
   });
 
   it("parses DROP POLICY", () => {

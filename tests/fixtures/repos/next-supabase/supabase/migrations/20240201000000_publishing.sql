@@ -6,3 +6,6 @@ DROP POLICY IF EXISTS "Temporary policy" ON comments;
 CREATE POLICY "Comment authors insert" ON comments
   FOR INSERT TO authenticated
   WITH CHECK (auth.uid() = author_id);
+CREATE POLICY "Only authors delete comments" ON comments
+  AS RESTRICTIVE FOR DELETE TO authenticated
+  USING (auth.uid() = author_id);

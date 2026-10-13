@@ -146,14 +146,25 @@
       "name": "Comment authors insert",
       "command": "INSERT",
       "roles": ["authenticated"],
+      "permissive": true,
       "source_file": "supabase/migrations/20240201000000_publishing.sql",
       "with_check": "auth.uid() = author_id"
+    },
+    {
+      "table": "comments",
+      "name": "Only authors delete comments",
+      "command": "DELETE",
+      "roles": ["authenticated"],
+      "permissive": false,
+      "source_file": "supabase/migrations/20240201000000_publishing.sql",
+      "using": "auth.uid() = author_id"
     },
     {
       "table": "posts",
       "name": "Anyone can read published posts",
       "command": "SELECT",
       "roles": ["anon", "authenticated"],
+      "permissive": true,
       "source_file": "supabase/migrations/20240101000000_init.sql",
       "using": "status = 'published'"
     },
@@ -162,6 +173,7 @@
       "name": "Authors manage their posts",
       "command": "ALL",
       "roles": ["authenticated"],
+      "permissive": true,
       "source_file": "supabase/migrations/20240101000000_init.sql",
       "using": "auth.uid() = author_id",
       "with_check": "auth.uid() = author_id"
