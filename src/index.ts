@@ -144,7 +144,7 @@ const CreatePageSchema = ProjectIdSchema.extend({
   status: z.enum(["draft", "confirmed"]).optional().default("draft"),
 });
 
-// ── Schema (spec authoring, Engine A) ────────────────────────────────────────
+// ── Schema (spec authoring on your own agent) ────────────────────────────────────────
 //
 // The schema surface is camelCase end-to-end and mirrors VibeMap's SchemaJSON,
 // which the server persists via SchemaDatabaseService.saveSchema. Unlike the
@@ -869,7 +869,7 @@ export async function handleCallTool(request: CallToolRequest) {
         const client = getVibeClient();
         const { projectId, ...contentCamel } = parsed;
         // MCP args are camelCase; /api/crud/personas wants snake_case. Convert
-        // once, then mirror Engine B by persisting the full content as
+        // once, then mirror the hosted agent by persisting the full content as
         // persona_data (the embedding writer indexes that column).
         const content = camelToSnakeDeep(contentCamel) as Record<string, unknown>;
         const persona = await client.createPersona({
@@ -915,7 +915,7 @@ export async function handleCallTool(request: CallToolRequest) {
       case "vibemap_agent": {
         const parsed = AgentSchema.parse(args);
         const client = getVibeClient();
-        // Drives VibeMap's hosted conversational agent (Engine B, metered). A
+        // Drives VibeMap's hosted conversational agent (metered). A
         // destructive turn returns confirmationRequired + operationId → approve
         // in a second call. Async work returns generationStarted → poll
         // vibemap_get_generation_status.

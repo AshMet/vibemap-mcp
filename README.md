@@ -53,7 +53,7 @@ Config file: `~/Library/Application Support/Claude/claude_desktop_config.json` (
 }
 ```
 
-Fully restart Claude Desktop after saving. Confirm the 🔨 hammer icon appears in the chat input.
+Fully restart Claude Desktop after saving. Confirm the 🔨 hammer icon appears in the message box.
 
 ### Cursor
 
@@ -85,7 +85,7 @@ Same format as Cursor. Add to your Windsurf MCP settings file and restart.
 
 ## Tools
 
-The server exposes **48 tools** via the `vibemap_` prefix.
+The server exposes **55 tools** via the `vibemap_` prefix.
 
 **Projects & context**
 
@@ -106,7 +106,7 @@ The server exposes **48 tools** via the `vibemap_` prefix.
 | `vibemap_create_page` | Create a page/screen in the project's page inventory |
 | `vibemap_create_schema` | Persist the database schema (tables → columns → relationships) in one call |
 
-**Conversational agent (Engine B — hosted, metered)**
+**Conversational agent (hosted, metered)**
 
 | Tool | Description |
 |---|---|
@@ -179,6 +179,20 @@ The server exposes **48 tools** via the `vibemap_` prefix.
 | `vibemap_get_code_map` | Fetch the project's current code map (status, nodes/edges, sync anchor + drift) |
 | `vibemap_get_generation_status` | Poll AI generation task status |
 
+**Import an existing codebase**
+
+The structure is read on your machine with no model and no network call. What reaches VibeMap is the structural facts (table, column, policy and route definitions with their file paths) and the spec text your agent writes. File contents never leave your machine.
+
+| Tool | Description |
+|---|---|
+| `vibemap_extract_repo_facts` | Read the repository's tables, policies, routes and file clusters locally; sends nothing |
+| `vibemap_import_facts` | Send the facts: VibeMap creates the schema, access rules and a page per route, each linked to its file |
+| `vibemap_import_semantic` | Send the features, stories and criteria your agent wrote, each citing its source files |
+| `vibemap_finalize_import` | Pass the imported criteria (unverified), lock MVP1 and open MVP2 |
+| `vibemap_resync` | Apply the structural changes at your current commit and flag the specs the changed files touch |
+| `vibemap_resolve_drift` | Clear handled files, map units or criteria from the drift report |
+| `vibemap_resolve_code_drift_proposal` | Apply or dismiss one staged code-drift proposal |
+
 ## Prompts (slash commands)
 
 The server also exposes **prompts** — invocable workflows your IDE surfaces as slash commands (in Claude Code: `/mcp__vibemap__<name>`). The body of each prompt is expanded from VibeMap's server at call time, so you invoke a workflow rather than paste a long instruction. Every prompt takes a `projectId` except `new_project`, which is the one that creates a project; the code-oriented ones also accept an optional `localPath`.
@@ -198,6 +212,8 @@ The server also exposes **prompts** — invocable workflows your IDE surfaces as
 | `code_map` | `projectId`, `localPath?` | Build and submit a structural code map |
 | `load_context` | `projectId` | Load the project's spec context into your agent |
 | `kanban` | `projectId` | Show the project's kanban board |
+| `import` | `projectId`, `localPath?` | Import an existing codebase as a locked MVP1: extract locally, import the facts, write the spec per cluster, finalize |
+| `resync` | `projectId`, `localPath?` | Bring an imported project up to date and stage drift proposals for review |
 | `build_sprint` | `projectId` | Build the ready work test first while the board follows live; CI verifies, the agent never marks anything done |
 | `release_next` | `projectId` | Build the next release: new and modified items, and delete what was removed |
 

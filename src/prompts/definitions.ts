@@ -140,7 +140,7 @@ export const PROMPT_DEFINITIONS: Prompt[] = [
     arguments: [PROJECT_ARG],
   },
 
-  // ── gen_* — VibeMap's own generation commands (ENGINE B, metered) ───────────
+  // ── gen_* — VibeMap's own generation commands (hosted, metered) ───────────
   //
   // One entry per `kind: "generation"` slash command in the app's registry
   // (lib/agent/commands/registry.ts). The app derives its `gen_*` prompt names

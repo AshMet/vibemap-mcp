@@ -191,7 +191,7 @@ export interface SubmitTaskData {
   additionalData?: Record<string, unknown>;
 }
 
-// ── Schema (Engine A: bring-your-own-agent database schema) ──────────────────
+// ── Schema (bring-your-own-agent database schema) ──────────────────
 //
 // The schema surface is camelCase end-to-end — it mirrors VibeMap's SchemaJSON,
 // which SchemaDatabaseService.saveSchema consumes directly. Unlike personas/pages
@@ -232,7 +232,7 @@ export interface CreateSchemaData {
   relationships?: SchemaRelationshipData[];
 }
 
-// ── Agent (Engine B: VibeMap-hosted conversational agent, metered) ───────────
+// ── Agent (VibeMap-hosted conversational agent, metered) ───────────
 
 export interface AgentOptions {
   /** Model id for the turn (server defaults to the economy model). */
@@ -572,7 +572,7 @@ export class VibeMapClient {
     });
   }
 
-  // ── Agent (Engine B: hosted conversational agent) ──────────────────────────
+  // ── Agent (hosted conversational agent) ──────────────────────────
 
   /**
    * Drive the full VibeMap conversational agent for one turn. Metered (uses
