@@ -12,6 +12,7 @@ import {
   McpError,
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { handleImportTool } from "./import/tools.js";
 import { formatPageSourceResponse, type PageRecord } from "./page-source.js";
 import { PROJECTLESS_PROMPTS, PROMPT_DEFINITIONS, PROMPT_NAMES } from "./prompts/definitions.js";
 import { TOOL_DEFINITIONS } from "./tools/definitions.js";
@@ -424,6 +425,7 @@ const SyncChangesSchema = z.object({
     .max(2000)
     .describe("Repo-relative paths changed since anchor.commitSha"),
   headSha: z.string().optional().describe("Current HEAD commit sha"),
+  diffExcerpt: z.string().max(20000).optional().describe("Optional excerpt of the diff"),
 });
 
 // ── Kanban Tracker (typed transitions) schemas ──────────────────────────────
@@ -1693,7 +1695,8 @@ see evidence for — do not invent features the code does not support.
         const result = await client.reportDriftChanges(
           parsed.projectId,
           parsed.changedFiles,
-          parsed.headSha
+          parsed.headSha,
+          parsed.diffExcerpt
         );
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
@@ -1706,8 +1709,11 @@ see evidence for — do not invent features the code does not support.
         return { content: [{ type: "text", text: JSON.stringify(status, null, 2) }] };
       }
 
-      default:
+      default: {
+        const imported = await handleImportTool(name, args, getVibeClient);
+        if (imported) return imported;
         throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
+      }
     }
   } catch (error) {
     const duration = Date.now() - start;

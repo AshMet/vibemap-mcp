@@ -163,6 +163,13 @@ describe("MCP Tools", () => {
     "vibemap_get_release_work_list",
     "vibemap_get_release_diff",
     "vibemap_propose_spec_change",
+    "vibemap_extract_repo_facts",
+    "vibemap_import_facts",
+    "vibemap_import_semantic",
+    "vibemap_finalize_import",
+    "vibemap_resync",
+    "vibemap_resolve_drift",
+    "vibemap_resolve_code_drift_proposal",
   ];
 
   describe("handleListTools", () => {
