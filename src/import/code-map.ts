@@ -8,10 +8,13 @@
  * match `vibemap_submit_code_map`.
  */
 
+import { createHash } from "node:crypto";
 import type { RepoFacts } from "../extract/types.js";
 
 export const MAX_MAP_NODES = 500;
 export const MAX_MAP_EDGES = 2000;
+/** Map ids are also sent back to clear drift, which accepts at most 200 characters. */
+export const MAX_NODE_ID = 200;
 
 export interface FactsMapNode {
   id: string;
@@ -38,6 +41,25 @@ const clip = (s: string, max: number) => (s.length > max ? s.slice(0, max) : s);
 
 export const tableNodeId = (sourceFile: string, table: string) => `${sourceFile}#${table}`;
 
+/** The id itself when short enough; else a prefix plus a hash of the whole, still unique. */
+export function nodeId(raw: string): string {
+  if (raw.length <= MAX_NODE_ID) return raw;
+  const hash = createHash("sha256").update(raw).digest("hex").slice(0, 12);
+  return `${raw.slice(0, MAX_NODE_ID - 13)}~${hash}`;
+}
+
+const SUMMARY_PREFIX = /^(Page|API route|Table) /;
+
+/** True for a map this module built (so a later sync may rebuild it). */
+export function isFactsDerivedMap(map: unknown): boolean {
+  const nodes = (map as { nodes?: Array<{ summary?: unknown }> } | null)?.nodes;
+  return (
+    Array.isArray(nodes) &&
+    nodes.length > 0 &&
+    nodes.every((n) => typeof n.summary === "string" && SUMMARY_PREFIX.test(n.summary))
+  );
+}
+
 /** Null when the facts hold no route and no table (a map needs one node). */
 export function factsToCodeMap(facts: RepoFacts): FactsCodeMap | null {
   const nodes: FactsMapNode[] = [];
@@ -52,7 +74,7 @@ export function factsToCodeMap(facts: RepoFacts): FactsCodeMap | null {
   for (const r of facts.routes) {
     const methods = r.methods?.length ? ` (${r.methods.join(", ")})` : "";
     push({
-      id: clip(r.file, 300),
+      id: nodeId(r.file),
       label: clip(r.path, 120),
       kind: r.kind === "api" ? "api" : "page",
       path: r.file,
@@ -62,7 +84,7 @@ export function factsToCodeMap(facts: RepoFacts): FactsCodeMap | null {
   }
   const tableIds = new Map<string, string>();
   for (const t of facts.tables) {
-    const id = clip(tableNodeId(t.source_file, t.name), 300);
+    const id = nodeId(tableNodeId(t.source_file, t.name));
     tableIds.set(t.name, id);
     push({
       id,
@@ -75,7 +97,7 @@ export function factsToCodeMap(facts: RepoFacts): FactsCodeMap | null {
   }
   if (nodes.length === 0) return null;
 
-  const routeFile = new Map(facts.routes.map((r) => [r.path, r.file]));
+  const routeFile = new Map(facts.routes.map((r) => [r.path, nodeId(r.file)]));
   const edges: FactsMapEdge[] = [];
   const seen = new Set<string>();
   for (const c of facts.clusters) {

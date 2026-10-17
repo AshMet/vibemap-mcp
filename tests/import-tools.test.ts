@@ -288,3 +288,80 @@ describe("ensureCodeMap", () => {
     expect(client.submitCodeMap).not.toHaveBeenCalled();
   });
 });
+
+describe("review fixes", () => {
+  const facts = extractRepoFacts(REPO);
+
+  it("keeps node ids within what the drift-resolve call accepts (200 chars), unique", () => {
+    const long = `app/${"x".repeat(250)}`;
+    const routes = [
+      { path: "/a", kind: "page" as const, file: `${long}/a/page.tsx`, dynamic_segments: [] },
+      { path: "/b", kind: "page" as const, file: `${long}/b/page.tsx`, dynamic_segments: [] },
+    ];
+    const map = factsToCodeMap({ ...facts, routes, clusters: [] } as RepoFacts);
+    for (const n of map?.nodes ?? []) expect(n.id.length).toBeLessThanOrEqual(200);
+    expect(new Set(map?.nodes.map((n) => n.id)).size).toBe(map?.nodes.length);
+  });
+
+  it("keeps edges attached when a route id had to be shortened", () => {
+    const long = `app/${"x".repeat(250)}/page.tsx`;
+    const t = facts.tables[0];
+    const map = factsToCodeMap({
+      ...facts,
+      routes: [{ path: "/long", kind: "page", file: long, dynamic_segments: [] }],
+      tables: [t],
+      clusters: [{ id: "c", files: [long], route_paths: ["/long"], tables: [t.name] }],
+    } as RepoFacts);
+    expect(map?.edges).toHaveLength(1);
+    expect(map?.nodes.some((n) => n.id === map.edges[0].source)).toBe(true);
+  });
+
+  it("resync still returns the applied diff when no map could be recorded, and reports no drift", async () => {
+    client.resyncImport.mockResolvedValue({ changed_files: ["app/api/posts/route.ts"], diff: { x: 1 } });
+    client.submitCodeMap.mockRejectedValue(new Error("down"));
+    const out = json(await call("vibemap_resync", { projectId: PROJECT, localPath: REPO }));
+    expect(client.reportDriftChanges).not.toHaveBeenCalled();
+    expect(out.resync.diff).toEqual({ x: 1 });
+    expect(out.drift).toEqual({ skipped: expect.stringMatching(/no code map/i) });
+  });
+
+  it("resync refreshes a map that was built from facts, so new routes and tables are on it", async () => {
+    const stale = factsToCodeMap({ ...facts, routes: facts.routes.slice(0, 1) });
+    client.getCodeMap.mockResolvedValue({ codeMap: { id: "m", map: stale } });
+    client.resyncImport.mockResolvedValue({ changed_files: [] });
+    const out = json(await call("vibemap_resync", { projectId: PROJECT, localPath: REPO }));
+    expect(out.codeMap).toEqual({ status: "refreshed" });
+    expect(client.submitCodeMap.mock.calls[0][1]).toEqual(factsToCodeMap(facts));
+  });
+
+  it("resync never replaces a map the agent or user built by hand", async () => {
+    client.getCodeMap.mockResolvedValue({
+      codeMap: { id: "m", map: { nodes: [{ id: "x", summary: "Billing service" }], edges: [] } },
+    });
+    client.resyncImport.mockResolvedValue({ changed_files: [] });
+    const out = json(await call("vibemap_resync", { projectId: PROJECT, localPath: REPO }));
+    expect(out.codeMap).toEqual({ status: "exists" });
+    expect(client.submitCodeMap).not.toHaveBeenCalled();
+  });
+
+  it("refuses facts too large for one request before sending anything", async () => {
+    const big = path.join(os.tmpdir(), `vm-big-${process.pid}`);
+    fs.mkdirSync(path.join(big, "supabase/migrations"), { recursive: true });
+    const sql = Array.from(
+      { length: 400 },
+      (_, i) =>
+        `create table t${i} (id uuid primary key);\nalter table t${i} enable row level security;\n` +
+        `create policy p${i} on t${i} for select using (${"true and ".repeat(1500)} true);`
+    ).join("\n");
+    fs.writeFileSync(path.join(big, "supabase/migrations/001_init.sql"), sql);
+    await expect(call("vibemap_import_facts", { projectId: PROJECT, localPath: big })).rejects.toThrow(
+      /too large/i
+    );
+    expect(client.importFacts).not.toHaveBeenCalled();
+  });
+
+  it("describes every criterion field the server accepts", () => {
+    const d = TOOL_DEFINITIONS.find((t) => t.name === "vibemap_import_semantic")?.description ?? "";
+    expect(d).toContain("scenarioCategory");
+  });
+});

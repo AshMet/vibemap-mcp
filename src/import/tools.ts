@@ -15,7 +15,22 @@ import { z } from "zod";
 import { extractRepoFacts } from "../extract/index.js";
 import type { RepoFacts } from "../extract/types.js";
 import type { VibeMapClient } from "../vibe-client.js";
-import { factsToCodeMap } from "./code-map.js";
+import { factsToCodeMap, isFactsDerivedMap } from "./code-map.js";
+
+/** Below the hosting platform's 4.5 MB request body limit. */
+export const MAX_FACTS_BYTES = 4_000_000;
+
+/** A clear error before sending, instead of an opaque 413 from the host. */
+export function assertFactsFit(facts: RepoFacts): void {
+  const bytes = Buffer.byteLength(JSON.stringify(facts), "utf8");
+  if (bytes > MAX_FACTS_BYTES) {
+    throw new McpError(
+      ErrorCode.InvalidParams,
+      `The repository's facts are too large to send in one request (${Math.round(bytes / 1e6)} MB, limit ${MAX_FACTS_BYTES / 1e6} MB). ` +
+        "Point localPath at the application's own folder rather than a monorepo root."
+    );
+  }
+}
 
 export const IMPORT_TOOL_NAMES = [
   "vibemap_extract_repo_facts",
@@ -140,18 +155,28 @@ export function summarizeFacts(dir: string, facts: RepoFacts) {
 export async function ensureCodeMap(
   client: ImportClient,
   projectId: string,
-  facts: RepoFacts
-): Promise<{ status: "created" | "exists" | "skipped" | "failed"; error?: string }> {
+  facts: RepoFacts,
+  opts: { refresh?: boolean } = {}
+): Promise<{ status: "created" | "refreshed" | "exists" | "skipped" | "failed"; error?: string }> {
   try {
-    const current = (await client.getCodeMap(projectId)) as { codeMap?: unknown };
-    if (current?.codeMap) return { status: "exists" };
+    const current = (await client.getCodeMap(projectId)) as { codeMap?: { map?: unknown } | null };
     const map = factsToCodeMap(facts);
+    if (current?.codeMap) {
+      // Only a map built from facts is rebuilt; a hand-built one is the user's.
+      const stale =
+        opts.refresh &&
+        map &&
+        isFactsDerivedMap(current.codeMap.map) &&
+        JSON.stringify({ n: (current.codeMap.map as { nodes?: unknown }).nodes, e: (current.codeMap.map as { edges?: unknown }).edges }) !==
+          JSON.stringify({ n: map.nodes, e: map.edges });
+      if (!stale) return { status: "exists" };
+    }
     if (!map) return { status: "skipped" };
     await client.submitCodeMap(projectId, map as unknown as Record<string, unknown>, {
       ...(facts.commit_sha ? { commitSha: facts.commit_sha } : {}),
       scannedAt: new Date().toISOString(),
     });
-    return { status: "created" };
+    return { status: current?.codeMap ? "refreshed" : "created" };
   } catch (err) {
     // The import itself already landed; a missing map only delays drift tracking.
     return { status: "failed", error: err instanceof Error ? err.message : String(err) };
@@ -181,6 +206,7 @@ export async function handleImportTool(
       const { projectId, localPath } = ImportFactsSchema.parse(args);
       const dir = resolveRepoDir(localPath);
       const facts = extractRepoFacts(dir);
+      assertFactsFit(facts);
       const client = getClient();
       const result = await client.importFacts(projectId, facts);
       const codeMap = await ensureCodeMap(client, projectId, facts);
@@ -201,16 +227,21 @@ export async function handleImportTool(
       const { projectId, localPath, changedFiles, diffExcerpt } = ResyncSchema.parse(args);
       const dir = resolveRepoDir(localPath);
       const facts = extractRepoFacts(dir);
+      assertFactsFit(facts);
       const client = getClient();
       const resync = (await client.resyncImport(projectId, facts)) as {
         changed_files?: string[];
       };
-      const codeMap = await ensureCodeMap(client, projectId, facts);
+      const codeMap = await ensureCodeMap(client, projectId, facts, { refresh: true });
       const files = [...new Set([...(resync.changed_files ?? []), ...(changedFiles ?? [])])]
         .sort()
         .slice(0, 2000);
-      const drift =
-        files.length > 0
+      // Drift is reported against the project's map; without one the call would
+      // fail after the resync above already landed, losing its result.
+      const hasMap = codeMap.status !== "failed" && codeMap.status !== "skipped";
+      const drift = !hasMap
+        ? { skipped: `No code map to report drift against (${codeMap.error ?? "nothing to map"})` }
+        : files.length > 0
           ? await client.reportDriftChanges(
               projectId,
               files,

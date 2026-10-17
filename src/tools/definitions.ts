@@ -1167,7 +1167,7 @@ export const TOOL_DEFINITIONS: Tool[] = [
   {
     name: "vibemap_import_semantic",
     description:
-      "Send the features, user stories and acceptance criteria you wrote for an imported repository. One feature per cluster (clusterId from vibemap_extract_repo_facts); every feature, story and criterion cites sourceFiles, which must be files listed in the facts. Only the spec text you write and those file paths are sent. Re-sending the same items updates them in place and never duplicates them. Call vibemap_import_facts first. Shape: features[{clusterId, name, description?, priority?, category?, complexity?, effort?, businessValue?, sourceFiles, stories[{slug?, userRole, iWantTo, soThat, description?, priority?, sourceFiles, acceptanceCriteria[{given, when, then, description?, elementLabel?, sourceFiles}]}]}].",
+      "Send the features, user stories and acceptance criteria you wrote for an imported repository. One feature per cluster (clusterId from vibemap_extract_repo_facts); every feature, story and criterion cites sourceFiles, which must be files listed in the facts. Only the spec text you write and those file paths are sent. Re-sending the same items updates them in place and never duplicates them. Call vibemap_import_facts first. Shape: features[{clusterId, name, description?, priority?, category?, complexity?, effort?, businessValue?, sourceFiles, stories[{slug?, userRole, iWantTo, soThat, description?, priority?, sourceFiles, acceptanceCriteria[{given, when, then, description?, scenarioCategory?, elementLabel?, sourceFiles}]}]}].",
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     inputSchema: {
       type: "object",
