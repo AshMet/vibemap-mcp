@@ -52,6 +52,21 @@ describe("tool definitions", () => {
     expect(importFacts?.description).toMatch(/File contents never leave your machine/);
   });
 
+  it("exposes every tool the app's import and resync prompts name", () => {
+    // Mirrors MCP_TOOLS_USED_BY_IMPORT in the app's import-prompt tests.
+    const used = [
+      "vibemap_extract_repo_facts",
+      "vibemap_import_facts",
+      "vibemap_import_semantic",
+      "vibemap_finalize_import",
+      "vibemap_get_code_map",
+      "vibemap_resync",
+      "vibemap_propose_spec_change",
+    ];
+    const names = new Set(TOOL_DEFINITIONS.map((t) => t.name));
+    for (const n of used) expect(names.has(n), n).toBe(true);
+  });
+
   it("marks the local extractor read-only and closed-world", () => {
     const d = TOOL_DEFINITIONS.find((t) => t.name === "vibemap_extract_repo_facts");
     expect(d?.annotations).toMatchObject({ readOnlyHint: true, openWorldHint: false });

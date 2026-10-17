@@ -235,6 +235,8 @@ describe("MCP Tools", () => {
       "kanban",
       "build_sprint",
       "release_next",
+      "import",
+      "resync",
       ...EXPECTED_GEN_PROMPTS,
     ];
 

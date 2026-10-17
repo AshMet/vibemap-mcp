@@ -11,7 +11,12 @@
  */
 import { describe, expect, it } from "vitest";
 // @ts-expect-error — dependency-free .mjs guard, deliberately not part of tsconfig's src build
-import { checkPromptMirror, EXPECTED_BUILD_NAMES, EXPECTED_GEN_NAMES } from "../scripts/check-prompt-mirror.mjs";
+import {
+  checkPromptMirror,
+  EXPECTED_BUILD_NAMES,
+  EXPECTED_GEN_NAMES,
+  EXPECTED_IMPORT_NAMES,
+} from "../scripts/check-prompt-mirror.mjs";
 import { PROMPT_DEFINITIONS } from "../src/prompts/definitions";
 
 const PROJECT_ARG = { name: "projectId", description: "x", required: true };
@@ -48,7 +53,31 @@ describe("checkPromptMirror", () => {
     expect(failures.join("\n")).toContain('"build_sprint"');
   });
 
-  // ── MUTATION: duplicate names ────────────────────────────────────────────
+  // ── MUTATION: the import prompts ─────────────────────────────────────────
+
+  it("FAILS when an import prompt is missing", () => {
+    expect(EXPECTED_IMPORT_NAMES).toEqual(["import", "resync"]);
+    for (const name of EXPECTED_IMPORT_NAMES) {
+      const defs = PROMPT_DEFINITIONS.filter((d) => d.name !== name);
+      const { failures } = checkPromptMirror(defs);
+      expect(failures.join("\n")).toContain(`"${name}" is missing`);
+    }
+  });
+
+  it("FAILS when an import prompt loses its optional localPath or its required projectId", () => {
+    for (const mutate of [
+      (d: (typeof PROMPT_DEFINITIONS)[number]) => ({ ...d, arguments: d.arguments?.slice(0, 1) }),
+      (d: (typeof PROMPT_DEFINITIONS)[number]) => ({
+        ...d,
+        arguments: d.arguments?.map((a) => (a.name === "projectId" ? { ...a, required: false } : a)),
+      }),
+    ]) {
+      const defs = PROMPT_DEFINITIONS.map((d) => (d.name === "import" ? mutate(d) : d));
+      expect(checkPromptMirror(defs).failures.join("\n")).toContain('"import"');
+    }
+  });
+
+    // ── MUTATION: duplicate names ────────────────────────────────────────────
 
   it("FAILS on a duplicate prompt name", () => {
     const defs = [
