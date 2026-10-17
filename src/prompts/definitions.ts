@@ -118,8 +118,20 @@ export const PROMPT_DEFINITIONS: Prompt[] = [
   {
     name: "build_sprint",
     description:
-      "Build the project's ready work in the repo you have open, one story at a time and test first, while the VibeMap board follows live. Plans from the execution plan, claims a story, writes a tagged test before the code, reports progress, commits with a criterion trailer, submits each criterion with its changed files and named tests, then waits for CI to verify (the pinned ci-report command, npx -y @vibemap.ai/mcp-server@2.11.0 ci-report, reports the results). Asks a question when the spec is unclear and proposes a spec change (never edits the spec) when the code must differ. Runs on your own model.",
+      "Build the project's ready work in the repo you have open, one story at a time and test first, while the VibeMap board follows live. Plans from the execution plan, claims a story, writes a tagged test before the code, reports progress, commits with a criterion trailer, submits each criterion with its changed files and named tests, then waits for CI to verify (the pinned ci-report command, npx -y @vibemap.ai/mcp-server@2.11.0 ci-report, reports the results). Asks a question when the spec is unclear and proposes a spec change (never edits the spec) when the code must differ. Generated tests are untrusted: review them before committing, and run CI without production secrets. Runs on your own model.",
     arguments: [PROJECT_ARG],
+  },
+  {
+    name: "import",
+    description:
+      "Import an existing codebase as the project's first release, in one run. Reads the repository's structure on this machine (tables, policies, routes; the same result every time), sends only those facts and file paths, then has your agent write a feature per cluster of related files with its user stories and acceptance criteria, each citing its source files. Ends with the spec locked as MVP1 and imported criteria passed (unverified until a tagged test passes in CI). File contents never leave your machine. Runs on your own model.",
+    arguments: [PROJECT_ARG, LOCAL_PATH_ARG],
+  },
+  {
+    name: "resync",
+    description:
+      "Bring an imported project up to date with the repository at its current commit: re-reads the structure locally, applies the structural changes, and flags criteria whose code changed and changed code no spec covers, as proposals the project owner reviews on the Codebase tab. Sends only facts and file paths.",
+    arguments: [PROJECT_ARG, LOCAL_PATH_ARG],
   },
   {
     name: "release_next",
@@ -128,7 +140,7 @@ export const PROMPT_DEFINITIONS: Prompt[] = [
     arguments: [PROJECT_ARG],
   },
 
-  // ── gen_* — VibeMap's own generation commands (ENGINE B, metered) ───────────
+  // ── gen_* — VibeMap's own generation commands (hosted, metered) ───────────
   //
   // One entry per `kind: "generation"` slash command in the app's registry
   // (lib/agent/commands/registry.ts). The app derives its `gen_*` prompt names

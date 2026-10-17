@@ -66,6 +66,11 @@ export const EXPECTED_GEN_NAMES = [
 // renames or removes one of them.
 export const EXPECTED_BUILD_NAMES = ["build_sprint", "release_next"];
 
+// The import prompts: bring an existing repository in as a locked first release,
+// then keep it in step. Same rule as above (the app serves the bodies). Each takes
+// a required projectId and an optional localPath.
+export const EXPECTED_IMPORT_NAMES = ["import", "resync"];
+
 const GEN_NAME_RE = /^gen_[a-z0-9]+(?:_[a-z0-9]+)*$/;
 
 /**
@@ -159,6 +164,31 @@ export function checkPromptMirror(definitions) {
       failures.push(
         `${JSON.stringify(name)}'s arguments are ${JSON.stringify(args)}, expected exactly ` +
           `[{ name: "projectId", required: true }].`
+      );
+    }
+  }
+
+  for (const name of EXPECTED_IMPORT_NAMES) {
+    const def = definitions.find((d) => d.name === name);
+    if (!def) {
+      failures.push(
+        `Expected import prompt ${JSON.stringify(name)} is missing from PROMPT_DEFINITIONS. ` +
+          `If it was intentionally removed, update EXPECTED_IMPORT_NAMES in scripts/check-prompt-mirror.mjs ` +
+          `in the same PR, and confirm the main app no longer serves it.`
+      );
+      continue;
+    }
+    const args = def.arguments ?? [];
+    const shapeOk =
+      args.length === 2 &&
+      args[0]?.name === "projectId" &&
+      args[0]?.required === true &&
+      args[1]?.name === "localPath" &&
+      args[1]?.required === false;
+    if (!shapeOk) {
+      failures.push(
+        `${JSON.stringify(name)}'s arguments are ${JSON.stringify(args)}, expected exactly ` +
+          `[{ name: "projectId", required: true }, { name: "localPath", required: false }].`
       );
     }
   }

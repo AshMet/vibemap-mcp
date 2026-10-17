@@ -333,11 +333,11 @@ export const TOOL_DEFINITIONS: Tool[] = [
     },
   },
 
-  // ── Group 1b: Conversational Agent (Engine B — hosted, metered) ──────────
+  // ── Group 1b: Conversational Agent (hosted, metered) ──────────
   {
     name: "vibemap_agent",
     description:
-      "Drive VibeMap's full conversational agent for one turn — the same brain as the in-app chat sidebar, entered through MCP. Give it a natural-language `message` (ask a question, or request a change like 'add a persona for admins', 'generate user stories for the billing feature', 'rename the Orders page'). This is METERED: it runs on VibeMap's own models and draws down the project owner's VibeMap token budget — unlike the granular create_*/list_* tools, which run on your agent and are unmetered. Use it when you want VibeMap to do the thinking; use the granular tools when your own agent authors content. CONFIRMATION (two calls): a destructive or sensitive request (deletes, permission changes, paid pipelines) replies with `confirmationRequired: true`, a human-readable `plan`, and an `operationId` — show the plan to the user, then approve with a second call `{ projectId, approveOperationId }` (or `{ projectId, approve: true }`, or a natural 'yes'). Nothing changes until you approve. ASYNC: turns that kick off a generation (features, user stories, schema, business case, …) reply with `generationStarted: true` and start a background job — poll it with vibemap_get_generation_status, then read results with the list_* tools. MEMORY: omit `sessionId` and the agent auto-threads history per project across calls; pass back the `sessionId` from a prior reply to pin a thread.",
+      "Drive VibeMap's full conversational agent for one turn — the same brain as the in-app agent sidebar, entered through MCP. Give it a natural-language `message` (ask a question, or request a change like 'add a persona for admins', 'generate user stories for the billing feature', 'rename the Orders page'). This is METERED: it runs on VibeMap's own models and draws down the project owner's VibeMap token budget — unlike the granular create_*/list_* tools, which run on your agent and are unmetered. Use it when you want VibeMap to do the thinking; use the granular tools when your own agent authors content. CONFIRMATION (two calls): a destructive or sensitive request (deletes, permission changes, paid pipelines) replies with `confirmationRequired: true`, a human-readable `plan`, and an `operationId` — show the plan to the user, then approve with a second call `{ projectId, approveOperationId }` (or `{ projectId, approve: true }`, or a natural 'yes'). Nothing changes until you approve. ASYNC: turns that kick off a generation (features, user stories, schema, business case, …) reply with `generationStarted: true` and start a background job — poll it with vibemap_get_generation_status, then read results with the list_* tools. MEMORY: omit `sessionId` and the agent auto-threads history per project across calls; pass back the `sessionId` from a prior reply to pin a thread.",
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
     inputSchema: {
       type: "object",
@@ -1119,8 +1119,135 @@ export const TOOL_DEFINITIONS: Tool[] = [
           description: "Repo-relative paths changed since anchor.commitSha (max 2000)",
         },
         headSha: { type: "string", description: "Current HEAD commit sha (git rev-parse HEAD)" },
+        diffExcerpt: {
+          type: "string",
+          description:
+            "Optional excerpt of the diff (max 20000 chars), shown to the project owner beside the affected specs",
+        },
       },
       required: ["projectId", "changedFiles"],
+    },
+  },
+
+  // ── Group 6b: Import an existing codebase ──────────────────────────────
+  // What leaves the machine is stated in every description: structural facts,
+  // file paths and the spec text the agent writes, never file contents.
+  {
+    name: "vibemap_extract_repo_facts",
+    description:
+      "Read the repository on this machine and return its structural facts: database tables and their row-level security policies (from SQL migrations or a Prisma schema), Next.js routes, and clusters of related files per route. Runs locally with no network call and no model, and sends nothing to VibeMap. The same code always gives the same facts. Use each cluster's id and files when you write the spec for vibemap_import_semantic.",
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+    inputSchema: {
+      type: "object",
+      properties: {
+        localPath: {
+          type: "string",
+          description: "Absolute path to the repository (defaults to the directory the server runs in)",
+        },
+      },
+    },
+  },
+  {
+    name: "vibemap_import_facts",
+    description:
+      "Import this repository's structure into a VibeMap project. Extracts the facts locally, then sends only the facts: table, column, foreign-key, policy and route definitions with their file paths. File contents never leave your machine. VibeMap turns them into the schema, access rules and one page per route, each linked to its file, and records a structural map of the repository (file paths only) if the project has none yet. Re-running on unchanged code writes nothing. Available on Pro and higher plans.",
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectId: { type: "string", description: "VibeMap project to import into" },
+        localPath: {
+          type: "string",
+          description: "Absolute path to the repository (defaults to the directory the server runs in)",
+        },
+      },
+      required: ["projectId"],
+    },
+  },
+  {
+    name: "vibemap_import_semantic",
+    description:
+      "Send the features, user stories and acceptance criteria you wrote for an imported repository. One feature per cluster (clusterId from vibemap_extract_repo_facts); every feature, story and criterion cites sourceFiles, which must be files listed in the facts. Only the spec text you write and those file paths are sent. Re-sending the same items updates them in place and never duplicates them. Call vibemap_import_facts first. Shape: features[{clusterId, name, description?, priority?, category?, complexity?, effort?, businessValue?, sourceFiles, stories[{slug?, userRole, iWantTo, soThat, description?, priority?, sourceFiles, acceptanceCriteria[{given, when, then, description?, scenarioCategory?, elementLabel?, sourceFiles}]}]}].",
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectId: { type: "string", description: "VibeMap project id" },
+        features: {
+          type: "array",
+          description: "Features to import (1-500), each with its stories and their criteria",
+          items: { type: "object" },
+        },
+      },
+      required: ["projectId", "features"],
+    },
+  },
+  {
+    name: "vibemap_finalize_import",
+    description:
+      "Finish an import. Every imported acceptance criterion becomes passed (unverified: no test has confirmed it yet), the result is locked as release MVP1, and MVP2 opens for new work. Criteria VibeMap flagged as hard to test stay in review instead. Calling it again reports the existing MVP1 and changes nothing. Sends only the project id.",
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    inputSchema: {
+      type: "object",
+      properties: { projectId: { type: "string", description: "VibeMap project id" } },
+      required: ["projectId"],
+    },
+  },
+  {
+    name: "vibemap_resync",
+    description:
+      "Bring an imported project up to date with the repository at its current commit. Extracts the facts locally and sends only the facts, so VibeMap applies the structural changes since the last import (added, changed and removed tables, policies and routes). It then reports the changed file paths, so specs whose code changed are flagged: a passed criterion whose files changed, or changed code that no spec covers, becomes a proposal the project owner reviews on the Codebase tab. Pass changedFiles (for example from `git diff --name-only <last synced commit>..HEAD`) to include edits that did not change the structure.",
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectId: { type: "string", description: "VibeMap project id" },
+        localPath: {
+          type: "string",
+          description: "Absolute path to the repository (defaults to the directory the server runs in)",
+        },
+        changedFiles: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional extra repo-relative paths changed since the last sync (max 2000)",
+        },
+        diffExcerpt: {
+          type: "string",
+          description: "Optional excerpt of the diff (max 20000 chars), shown beside the proposals",
+        },
+      },
+      required: ["projectId"],
+    },
+  },
+  {
+    name: "vibemap_resolve_drift",
+    description:
+      "Clear reported code drift once it is handled: after you updated the affected specs, or decided they need no change. Name the files, code map units (nodeIds) or criteria (criterionIds) to clear. The project's sync point moves to the new commit only when no drift is left.",
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectId: { type: "string", description: "VibeMap project id" },
+        files: { type: "array", items: { type: "string" }, description: "Repo-relative paths" },
+        nodeIds: { type: "array", items: { type: "string" }, description: "Code map unit ids" },
+        criterionIds: { type: "array", items: { type: "string" }, description: "Criterion ids" },
+      },
+      required: ["projectId"],
+    },
+  },
+  {
+    name: "vibemap_resolve_code_drift_proposal",
+    description:
+      "Apply or dismiss one staged code-drift proposal. Applying it on a passed criterion marks the criterion as possibly stale so it gets re-verified; dismissing it keeps the spec as it is. Either way the proposal's files are cleared from the drift report. The project owner normally decides this on the Codebase tab: only call it when the user asks you to.",
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+    inputSchema: {
+      type: "object",
+      properties: {
+        projectId: { type: "string", description: "VibeMap project id" },
+        proposalId: { type: "string", description: "The proposal's id (UUID)" },
+        decision: { type: "string", enum: ["apply", "dismiss"] },
+      },
+      required: ["projectId", "proposalId", "decision"],
     },
   },
 

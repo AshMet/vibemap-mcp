@@ -12,6 +12,7 @@ import {
   McpError,
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { handleImportTool } from "./import/tools.js";
 import { formatPageSourceResponse, type PageRecord } from "./page-source.js";
 import { PROJECTLESS_PROMPTS, PROMPT_DEFINITIONS, PROMPT_NAMES } from "./prompts/definitions.js";
 import { TOOL_DEFINITIONS } from "./tools/definitions.js";
@@ -143,7 +144,7 @@ const CreatePageSchema = ProjectIdSchema.extend({
   status: z.enum(["draft", "confirmed"]).optional().default("draft"),
 });
 
-// ── Schema (spec authoring, Engine A) ────────────────────────────────────────
+// ── Schema (spec authoring on your own agent) ────────────────────────────────────────
 //
 // The schema surface is camelCase end-to-end and mirrors VibeMap's SchemaJSON,
 // which the server persists via SchemaDatabaseService.saveSchema. Unlike the
@@ -424,6 +425,7 @@ const SyncChangesSchema = z.object({
     .max(2000)
     .describe("Repo-relative paths changed since anchor.commitSha"),
   headSha: z.string().optional().describe("Current HEAD commit sha"),
+  diffExcerpt: z.string().max(20000).optional().describe("Optional excerpt of the diff"),
 });
 
 // ── Kanban Tracker (typed transitions) schemas ──────────────────────────────
@@ -867,7 +869,7 @@ export async function handleCallTool(request: CallToolRequest) {
         const client = getVibeClient();
         const { projectId, ...contentCamel } = parsed;
         // MCP args are camelCase; /api/crud/personas wants snake_case. Convert
-        // once, then mirror Engine B by persisting the full content as
+        // once, then mirror the hosted agent by persisting the full content as
         // persona_data (the embedding writer indexes that column).
         const content = camelToSnakeDeep(contentCamel) as Record<string, unknown>;
         const persona = await client.createPersona({
@@ -913,7 +915,7 @@ export async function handleCallTool(request: CallToolRequest) {
       case "vibemap_agent": {
         const parsed = AgentSchema.parse(args);
         const client = getVibeClient();
-        // Drives VibeMap's hosted conversational agent (Engine B, metered). A
+        // Drives VibeMap's hosted conversational agent (metered). A
         // destructive turn returns confirmationRequired + operationId → approve
         // in a second call. Async work returns generationStarted → poll
         // vibemap_get_generation_status.
@@ -1693,7 +1695,8 @@ see evidence for — do not invent features the code does not support.
         const result = await client.reportDriftChanges(
           parsed.projectId,
           parsed.changedFiles,
-          parsed.headSha
+          parsed.headSha,
+          parsed.diffExcerpt
         );
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
       }
@@ -1706,8 +1709,11 @@ see evidence for — do not invent features the code does not support.
         return { content: [{ type: "text", text: JSON.stringify(status, null, 2) }] };
       }
 
-      default:
+      default: {
+        const imported = await handleImportTool(name, args, getVibeClient);
+        if (imported) return imported;
         throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
+      }
     }
   } catch (error) {
     const duration = Date.now() - start;

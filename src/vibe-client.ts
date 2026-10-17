@@ -191,7 +191,7 @@ export interface SubmitTaskData {
   additionalData?: Record<string, unknown>;
 }
 
-// ── Schema (Engine A: bring-your-own-agent database schema) ──────────────────
+// ── Schema (bring-your-own-agent database schema) ──────────────────
 //
 // The schema surface is camelCase end-to-end — it mirrors VibeMap's SchemaJSON,
 // which SchemaDatabaseService.saveSchema consumes directly. Unlike personas/pages
@@ -232,7 +232,7 @@ export interface CreateSchemaData {
   relationships?: SchemaRelationshipData[];
 }
 
-// ── Agent (Engine B: VibeMap-hosted conversational agent, metered) ───────────
+// ── Agent (VibeMap-hosted conversational agent, metered) ───────────
 
 export interface AgentOptions {
   /** Model id for the turn (server defaults to the economy model). */
@@ -321,6 +321,14 @@ export interface ProposeSpecChangeData {
 }
 
 // ─── Client ──────────────────────────────────────────────────────────────────
+
+export interface ResolveDriftData {
+  files?: string[];
+  nodeIds?: string[];
+  criterionIds?: string[];
+}
+
+const IMPORT_TIMEOUT_MS = 300_000;
 
 export class VibeMapClient {
   private config: VibeConfig;
@@ -439,12 +447,73 @@ export class VibeMapClient {
   async reportDriftChanges(
     projectId: string,
     changedFiles: string[],
-    headSha?: string
+    headSha?: string,
+    diffExcerpt?: string
   ): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>("/api/mcp/code-map", {
       method: "PATCH",
-      body: JSON.stringify({ projectId, action: "report_drift", changedFiles, headSha }),
+      body: JSON.stringify({ projectId, action: "report_drift", changedFiles, headSha, diffExcerpt }),
     });
+  }
+
+  async resolveDrift(projectId: string, data: ResolveDriftData): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>("/api/mcp/code-map", {
+      method: "PATCH",
+      body: JSON.stringify({
+        projectId,
+        action: "resolve_drift",
+        files: data.files ?? [],
+        nodeIds: data.nodeIds ?? [],
+        criterionIds: data.criterionIds ?? [],
+      }),
+    });
+  }
+
+  async resolveCodeDriftProposal(
+    projectId: string,
+    proposalId: string,
+    decision: "apply" | "dismiss"
+  ): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>("/api/mcp/code-map", {
+      method: "PATCH",
+      body: JSON.stringify({ projectId, action: "resolve_code_drift_proposal", proposalId, decision }),
+    });
+  }
+
+  // ── Import (repository facts → spec) ──────────────────────────────────────
+  // A large repository's facts can take a while to land, so these get the
+  // server's full request budget rather than the 30s CRUD default.
+
+  async importFacts(projectId: string, facts: unknown): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      "/api/import/facts",
+      { method: "POST", body: JSON.stringify({ projectId, facts }) },
+      IMPORT_TIMEOUT_MS
+    );
+  }
+
+  async importSemantic(projectId: string, features: unknown[]): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      "/api/import/semantic",
+      { method: "POST", body: JSON.stringify({ projectId, features }) },
+      IMPORT_TIMEOUT_MS
+    );
+  }
+
+  async finalizeImport(projectId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      "/api/import/finalize",
+      { method: "POST", body: JSON.stringify({ projectId }) },
+      IMPORT_TIMEOUT_MS
+    );
+  }
+
+  async resyncImport(projectId: string, facts: unknown): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      "/api/import/resync",
+      { method: "POST", body: JSON.stringify({ projectId, facts }) },
+      IMPORT_TIMEOUT_MS
+    );
   }
 
   async listChangesets(
@@ -503,7 +572,7 @@ export class VibeMapClient {
     });
   }
 
-  // ── Agent (Engine B: hosted conversational agent) ──────────────────────────
+  // ── Agent (hosted conversational agent) ──────────────────────────
 
   /**
    * Drive the full VibeMap conversational agent for one turn. Metered (uses
