@@ -130,7 +130,7 @@ export const PROMPT_DEFINITIONS: Prompt[] = [
   {
     name: "resync",
     description:
-      "Bring an imported project up to date with the repository at its current commit: re-reads the structure locally, applies the structural changes, and flags criteria whose code changed and changed code no spec covers, as proposals the project owner reviews on the Codebase tab. Sends only facts and file paths.",
+      "Bring an imported project up to date with the repository at its current commit: re-reads the structure locally, applies the structural changes, and flags criteria whose code changed and changed code no spec covers, as proposals the project owner reviews on the Code page. Sends only facts and file paths.",
     arguments: [PROJECT_ARG, LOCAL_PATH_ARG],
   },
   {

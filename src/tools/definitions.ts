@@ -1067,7 +1067,7 @@ export const TOOL_DEFINITIONS: Tool[] = [
   {
     name: "vibemap_submit_code_map",
     description:
-      "Submit a structural code map of the user's codebase to VibeMap (rendered on the project's Codebase tab). Build it yourself from your codebase access: one node per meaningful unit (page/route, API endpoint, data model, service, module, config), edges for imports/routes/reads/writes. Node kinds: page|api|model|service|module|config. Layers: ui|api|data|services|shared. Edge kinds: imports|routes|reads|writes. Use repo-relative paths as node ids. Max 500 nodes — aggregate small files into their module. Re-submitting replaces the project's map and resets it to draft for the user to re-confirm; any existing drift report is kept.",
+      "Submit a structural code map of the user's codebase to VibeMap (rendered on the project's Code page). Build it yourself from your codebase access: one node per meaningful unit (page/route, API endpoint, data model, service, module, config), edges for imports/routes/reads/writes. Node kinds: page|api|model|service|module|config. Layers: ui|api|data|services|shared. Edge kinds: imports|routes|reads|writes. Use repo-relative paths as node ids. Max 500 nodes — aggregate small files into their module. Re-submitting replaces the project's map and resets it to draft for the user to re-confirm; any existing drift report is kept.",
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     inputSchema: {
       type: "object",
@@ -1196,7 +1196,7 @@ export const TOOL_DEFINITIONS: Tool[] = [
   {
     name: "vibemap_resync",
     description:
-      "Bring an imported project up to date with the repository at its current commit. Extracts the facts locally and sends only the facts, so VibeMap applies the structural changes since the last import (added, changed and removed tables, policies and routes). It then reports the changed file paths, so specs whose code changed are flagged: a passed criterion whose files changed, or changed code that no spec covers, becomes a proposal the project owner reviews on the Codebase tab. Pass changedFiles (for example from `git diff --name-only <last synced commit>..HEAD`) to include edits that did not change the structure.",
+      "Bring an imported project up to date with the repository at its current commit. Extracts the facts locally and sends only the facts, so VibeMap applies the structural changes since the last import (added, changed and removed tables, policies and routes). It then reports the changed file paths, so specs whose code changed are flagged: a passed criterion whose files changed, or changed code that no spec covers, becomes a proposal the project owner reviews on the Code page. Pass changedFiles (for example from `git diff --name-only <last synced commit>..HEAD`) to include edits that did not change the structure.",
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     inputSchema: {
       type: "object",
@@ -1238,7 +1238,7 @@ export const TOOL_DEFINITIONS: Tool[] = [
   {
     name: "vibemap_resolve_code_drift_proposal",
     description:
-      "Apply or dismiss one staged code-drift proposal. Applying it on a passed criterion marks the criterion as possibly stale so it gets re-verified; dismissing it keeps the spec as it is. Either way the proposal's files are cleared from the drift report. The project owner normally decides this on the Codebase tab: only call it when the user asks you to.",
+      "Apply or dismiss one staged code-drift proposal. Applying it on a passed criterion marks the criterion as possibly stale so it gets re-verified; dismissing it keeps the spec as it is. Either way the proposal's files are cleared from the drift report. The project owner normally decides this on the Code page: only call it when the user asks you to.",
     annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
     inputSchema: {
       type: "object",
