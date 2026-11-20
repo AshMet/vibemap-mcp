@@ -140,11 +140,11 @@ describe("what each role states", () => {
 });
 
 describe("public-repo disclosure guard", () => {
-  // The same pattern a reviewer greps the diff for before this ships.
-  const FORBIDDEN =
-    /opus|sonnet|haiku|gpt|gemini|40000|lib\/|inngest|bubblewrap|bwrap|vercel sandbox|supabase|claude/i;
+  // Model names only. This file is public, so it must not spell out internal names itself: the full
+  // internal-name check runs on the diff before merge, outside this repo.
+  const FORBIDDEN = /opus|sonnet|haiku|gpt|gemini|claude|\b\d{5,}\b/i;
 
-  it("no role prompt or description names a model, token constant, internal path or sandbox", () => {
+  it("no role prompt or description names a model or a token constant", () => {
     for (const name of ROLES) {
       expect(body(name)).not.toMatch(FORBIDDEN);
       const def = PROMPT_DEFINITIONS.find((p) => p.name === name);
@@ -153,6 +153,6 @@ describe("public-repo disclosure guard", () => {
   });
 
   it("the guard itself catches a leak (mutation proof)", () => {
-    expect(`${body("vibemap-qa")}\nRuns on the hosted sandbox under lib/builder.`).toMatch(FORBIDDEN);
+    expect(`${body("vibemap-qa")}\nUses claude-opus with a 40000-token budget.`).toMatch(FORBIDDEN);
   });
 });
