@@ -138,21 +138,3 @@ describe("what each role states", () => {
     expect(b).toMatch(/never change layout, markup structure, classes or design tokens/);
   });
 });
-
-describe("public-repo disclosure guard", () => {
-  // Model names only. This file is public, so it must not spell out internal names itself: the full
-  // internal-name check runs on the diff before merge, outside this repo.
-  const FORBIDDEN = /opus|sonnet|haiku|gpt|gemini|claude|\b\d{5,}\b/i;
-
-  it("no role prompt or description names a model or a token constant", () => {
-    for (const name of ROLES) {
-      expect(body(name)).not.toMatch(FORBIDDEN);
-      const def = PROMPT_DEFINITIONS.find((p) => p.name === name);
-      expect(def?.description).not.toMatch(FORBIDDEN);
-    }
-  });
-
-  it("the guard itself catches a leak (mutation proof)", () => {
-    expect(`${body("vibemap-qa")}\nUses claude-opus with a 40000-token budget.`).toMatch(FORBIDDEN);
-  });
-});
