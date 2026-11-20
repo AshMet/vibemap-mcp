@@ -175,7 +175,7 @@ The server exposes **55 tools** via the `vibemap_` prefix.
 |---|---|
 | `vibemap_scan_codebase` | Walk a local directory |
 | `vibemap_analyze_codebase` | Reverse-engineer a codebase into VibeMap assets |
-| `vibemap_submit_code_map` | Submit a structural code map (nodes/edges) rendered on the project's Codebase tab |
+| `vibemap_submit_code_map` | Submit a structural code map (nodes/edges) rendered on the project's Code page |
 | `vibemap_get_code_map` | Fetch the project's current code map (status, nodes/edges, sync anchor + drift) |
 | `vibemap_get_generation_status` | Poll AI generation task status |
 
