@@ -14,7 +14,12 @@ import {
 import { z } from "zod";
 import { handleImportTool } from "./import/tools.js";
 import { formatPageSourceResponse, type PageRecord } from "./page-source.js";
-import { PROJECTLESS_PROMPTS, PROMPT_DEFINITIONS, PROMPT_NAMES } from "./prompts/definitions.js";
+import {
+  PROJECTLESS_PROMPTS,
+  PROMPT_DEFINITIONS,
+  PROMPT_NAMES,
+  renderLocalPrompt,
+} from "./prompts/definitions.js";
 import { TOOL_DEFINITIONS } from "./tools/definitions.js";
 import { buildCodebaseDigest, camelToSnakeDeep, walkDir } from "./utils.js";
 import { SERVER_VERSION } from "./version.js";
@@ -818,8 +823,10 @@ export async function handleGetPrompt(request: GetPromptRequest) {
   }
   const localPath = args?.localPath?.trim() || undefined;
 
-  const client = getVibeClient();
-  const text = await client.getPrompt(name, { projectId: projectId || undefined, localPath });
+  // Crew role prompts ship their bodies in this package: no server round trip.
+  const text =
+    renderLocalPrompt(name, projectId) ??
+    (await getVibeClient().getPrompt(name, { projectId: projectId || undefined, localPath }));
 
   const def = PROMPT_DEFINITIONS.find((p) => p.name === name);
   return {

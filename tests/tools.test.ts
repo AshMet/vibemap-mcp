@@ -237,6 +237,10 @@ describe("MCP Tools", () => {
       "release_next",
       "import",
       "resync",
+      "vibemap-architect",
+      "vibemap-backend",
+      "vibemap-frontend",
+      "vibemap-qa",
       ...EXPECTED_GEN_PROMPTS,
     ];
 
@@ -318,6 +322,20 @@ describe("MCP Tools", () => {
         projectId: "proj-1",
         localPath: "/home/me/app",
       });
+    });
+
+    it("expands a crew role prompt from this package, without calling the server", async () => {
+      stableMockClient.getPrompt.mockClear();
+      const result = await handleGetPrompt(
+        makeRequest("vibemap-qa", { projectId: "proj-1" }) as any
+      );
+      expect(stableMockClient.getPrompt).not.toHaveBeenCalled();
+      expect(result.messages[0].role).toBe("user");
+      expect(result.messages[0].content.text).toMatch(/^Project: proj-1 /);
+      expect(result.messages[0].content.text).toContain("# Role: VibeMap QA");
+      await expect(handleGetPrompt(makeRequest("vibemap-qa", {}) as any)).rejects.toThrow(
+        /requires a projectId/
+      );
     });
 
     it("throws on an unknown prompt", async () => {
