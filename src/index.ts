@@ -366,6 +366,7 @@ const GetProjectContextSchema = ProjectIdSchema.extend({
 const GetAtomicBlueprintSchema = ProjectIdSchema;
 
 const ListAccessRulesSchema = ProjectIdSchema;
+const GetAnalyticsPlanSchema = ProjectIdSchema;
 const GetReviewPlanSchema = ProjectIdSchema;
 
 const ListChangesetsSchema = ProjectIdSchema.extend({
@@ -1053,6 +1054,14 @@ export async function handleCallTool(request: CallToolRequest) {
         const client = getVibeClient();
         const rules = await client.listAccessRules(parsed.projectId);
         return { content: [{ type: "text", text: JSON.stringify(rules, null, 2) }] };
+      }
+
+      // ── vibemap_get_analytics_plan ─────────────────────────────────────────
+      case "vibemap_get_analytics_plan": {
+        const parsed = GetAnalyticsPlanSchema.parse(args);
+        const client = getVibeClient();
+        const plan = await client.getAnalyticsPlan(parsed.projectId);
+        return { content: [{ type: "text", text: JSON.stringify(plan, null, 2) }] };
       }
 
       // ── vibemap_get_review_plan ────────────────────────────────────────────

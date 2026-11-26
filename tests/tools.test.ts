@@ -121,6 +121,7 @@ describe("MCP Tools", () => {
     "vibemap_get_review_plan",
     "vibemap_get_atomic_blueprint",
     "vibemap_list_access_rules",
+    "vibemap_get_analytics_plan",
     "vibemap_list_changesets",
     "vibemap_get_page_source",
     "vibemap_create_persona",

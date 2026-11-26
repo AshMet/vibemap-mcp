@@ -343,6 +343,21 @@ describe("VibeMapClient", () => {
     await expect(client.listAccessRules("missing")).rejects.toThrow("Project not found");
   });
 
+  it("calls /api/mcp/analytics-plan with the projectId", async () => {
+    let capturedUrl = "";
+    const mockPlan = { project_id: "proj-1", events: [{ name: "Booking Created" }] };
+    server.use(
+      http.get(`${baseUrl}/api/mcp/analytics-plan`, ({ request }) => {
+        capturedUrl = request.url;
+        return HttpResponse.json(mockPlan);
+      })
+    );
+
+    const result = await client.getAnalyticsPlan("proj-1");
+    expect(capturedUrl).toContain("projectId=proj-1");
+    expect(result).toEqual(mockPlan);
+  });
+
   it("calls /api/mcp/review-plan with the projectId", async () => {
     let capturedUrl = "";
     let capturedAuth = "";

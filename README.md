@@ -85,7 +85,7 @@ Same format as Cursor. Add to your Windsurf MCP settings file and restart.
 
 ## Tools
 
-The server exposes **55 tools** via the `vibemap_` prefix.
+The server exposes **56 tools** via the `vibemap_` prefix.
 
 **Projects & context**
 
@@ -96,6 +96,7 @@ The server exposes **55 tools** via the `vibemap_` prefix.
 | `vibemap_get_project_context` | Load full project specs into agent context |
 | `vibemap_get_atomic_blueprint` | Get the code-shaped blueprint of the whole project (large; for scaffolds and audits, not for building a single ticket: use `vibemap_get_criterion_context` there) |
 | `vibemap_list_access_rules` | List table- and page-level access rules (with `op_conditions`) for RLS + auth |
+| `vibemap_get_analytics_plan` | Get the analytics tracking plan: the events to emit, where each fires (client action or server write), and typed properties |
 | `vibemap_get_page_source` | Retrieve a page and its section source code |
 
 **Personas & pages (spec authoring)**
