@@ -421,6 +421,12 @@ export class VibeMapClient {
     );
   }
 
+  async getAnalyticsPlan(projectId: string): Promise<Record<string, unknown>> {
+    return this.request<Record<string, unknown>>(
+      `/api/mcp/analytics-plan${this.buildQuery({ projectId })}`
+    );
+  }
+
   async listAccessRules(projectId: string): Promise<Record<string, unknown>> {
     return this.request<Record<string, unknown>>(
       `/api/mcp/access-rules${this.buildQuery({ projectId })}`
